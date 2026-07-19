@@ -36,6 +36,13 @@ TEMPLATE = Path(__file__).resolve().parent / "instituicoes_financeiras_template.
 TOP_N_DRE = 50
 TOP_N_CARTEIRA = 30
 TOP_N_SEGMENTO = 10
+# Recorte do DRE definido pelo usuário (jul/2026): além do top TOP_N_DRE
+# nacional, entram com histórico completo TODAS as instituições sediadas
+# nos 9 estados do Nordeste + as sediadas em Curitiba/PR (no Paraná o
+# usuário restringiu à capital — o interior é dominado por dezenas de
+# cooperativas pequenas fora do foco do comparativo).
+UFS_DRE_COMPLETO = ("MA", "PI", "CE", "RN", "PB", "PE", "AL", "SE", "BA")
+MUNICIPIOS_DRE_COMPLETO = (("PR", "Curitiba"),)
 # janela padrão de histórico pedida pelo usuário (jul/2026) — últimos 5 anos,
 # aplicada aos relatórios de IF que não são o DRE (taxa de juros, evolução do
 # sistema pros KPIs)
@@ -195,13 +202,10 @@ def evolucao_sistema(con: sqlite3.Connection) -> list[dict]:
 
 def segmentacao_detalhe(con: sqlite3.Connection, top_n: int = TOP_N_SEGMENTO) -> dict:
     """Top N instituições DENTRO de cada segmento (S1-S5), por ativo total,
-    na última competência — INDEPENDENTE do ranking global de
-    `instituicoes_dre` (que só pega o top TOP_N_DRE geral, dominado por
-    S1-S3; sem isso, o detalhamento de S4/S5 ficaria vazio ou quase, já que
-    são os segmentos com as MENORES instituições). Pedido explícito do
-    usuário pro S5 (jul/2026), aplicado de forma uniforme aos 5 segmentos —
-    S1/S2 têm poucas instituições no total e aparecem inteiros de qualquer
-    forma."""
+    na última competência — visão "foto do segmento" própria, independente
+    do ranking DRE. Pedido explícito do usuário pro S5 (jul/2026), aplicado
+    de forma uniforme aos 5 segmentos — S1/S2 têm poucas instituições no
+    total e aparecem inteiros de qualquer forma."""
     df = pd.read_sql_query(
         "SELECT i.segmento, i.codinst, i.nome, i.uf, d.ativo_total, d.lucro_liquido, "
         "d.anomes "
@@ -250,23 +254,47 @@ def todas_instituicoes(con: sqlite3.Connection) -> list[dict]:
 
 
 def instituicoes_dre(con: sqlite3.Connection) -> tuple[list, list, list]:
-    """Ranking + histórico (nível instituição individual) — só as TOP_N_DRE
-    por ativo total na última competência entram com série completa, pra
-    não estourar o payload com milhares de instituições pequenas/inativas."""
+    """Histórico DRE de TODAS as instituições com dado consolidado na última
+    competência (~1350) — pedido explícito do usuário (jul/2026): a
+    comparação/busca não pode ficar restrita ao top nacional. Recorte
+    vigente (definido pelo usuário): top TOP_N_DRE por ativo total +
+    TODAS as instituições sediadas nas UFS_DRE_COMPLETO (Nordeste) e nos
+    MUNICIPIOS_DRE_COMPLETO (Curitiba/PR), cada uma com o histórico
+    completo de HIST_ANOS_DRE. O ranking VISUAL continua curto
+    (renderDreBars corta em 20 no front)."""
     periodos = [r[0] for r in con.execute(
         "SELECT DISTINCT anomes FROM ifdata_dre_valor ORDER BY anomes")]
     periodos = ultimos_n_anos(periodos, anos=HIST_ANOS_DRE)
     if not periodos:
         return [], [], []
 
-    top_codinst = [r[0] for r in con.execute(
-        "SELECT codinst FROM v_ifdata_dre "
-        "WHERE anomes = (SELECT MAX(anomes) FROM v_ifdata_dre WHERE ativo_total IS NOT NULL) "
-        "ORDER BY ativo_total DESC LIMIT ?", (TOP_N_DRE,)).fetchall()]
-    if not top_codinst:
+    # O recorte é montado SÓ com as tabelas brutas (indexadas, instantâneas)
+    # — nunca com a view v_ifdata_dre, cujo GROUP BY sobre ~2M linhas de
+    # contas levava MINUTOS por avaliação e travou várias gerações quando
+    # usada em subqueries de MAX(anomes)/ranking (bug real, jul/2026).
+    # Conta 140220 = Ativo Total (esquema COSIF 2025).
+    ultimo_anomes = con.execute(
+        "SELECT MAX(anomes) FROM ifdata_dre_valor").fetchone()[0]
+    top_nacional = {r[0] for r in con.execute(
+        "SELECT codinst FROM ifdata_dre_valor "
+        "WHERE anomes = ? AND conta = '140220' AND valor IS NOT NULL "
+        "ORDER BY valor DESC LIMIT ?", (ultimo_anomes, TOP_N_DRE))}
+    ufs_ne = ",".join(f"'{u}'" for u in UFS_DRE_COMPLETO)
+    municipios_sql = " OR ".join(
+        f"(i.uf = '{uf}' AND i.municipio = '{cidade}')"
+        for uf, cidade in MUNICIPIOS_DRE_COMPLETO)
+    # sede nas UFs/municípios de cobertura completa E com ativo consolidado
+    # na última competência (o join com a conta 140220 garante "viva")
+    regionais = {r[0] for r in con.execute(
+        f"SELECT i.codinst FROM ifdata_instituicao i "
+        f"JOIN ifdata_dre_valor d ON d.codinst = i.codinst AND d.anomes = i.anomes "
+        f"AND d.conta = '140220' AND d.valor IS NOT NULL "
+        f"WHERE i.anomes = ? AND (i.uf IN ({ufs_ne}) OR {municipios_sql})",
+        (ultimo_anomes,))}
+    codinsts_recorte = top_nacional | regionais
+    if not codinsts_recorte:
         return periodos, [], []
 
-    placeholders = ",".join("?" * len(top_codinst))
     colunas_base = [
         "codinst", "anomes", "nome", "segmento", "uf", "situacao",
         "ativo_total", "receita_juros_credito", "receita_credito_total",
@@ -274,9 +302,13 @@ def instituicoes_dre(con: sqlite3.Connection) -> tuple[list, list, list]:
     ]
     colunas_calculo = _DRE_RECEITA_FIXA + _DRE_DESPESA_FIXA + _DRE_AMBIGUAS
     colunas = colunas_base + [c for c in colunas_calculo if c not in colunas_base]
+    # ~200 codinsts cabem tranquilo no limite de placeholders do SQLite —
+    # e o IN(...) empurra o filtro pra dentro da view (que agrupa ~2M
+    # linhas de contas), cortando o grosso do trabalho no próprio SQL
+    placeholders = ",".join("?" * len(codinsts_recorte))
     df = pd.read_sql_query(
         f"SELECT {', '.join(colunas)} FROM v_ifdata_dre "
-        f"WHERE codinst IN ({placeholders})", con, params=top_codinst)
+        f"WHERE codinst IN ({placeholders})", con, params=sorted(codinsts_recorte))
     df["receita_total"], df["despesa_total"] = zip(
         *df.apply(calcular_receita_despesa_total, axis=1))
     # o BCB grava contas de despesa com sinal negativo (convenção COSIF, pra

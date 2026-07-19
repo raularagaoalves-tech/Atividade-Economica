@@ -115,15 +115,34 @@ IDS_POR_DOMINIO = {
     ],
 }
 
-# rótulos do menu e da seção, na ordem em que aparecem
+# todas as seções roteáveis, na ordem em que os <section> aparecem no DOM
 SECOES = [
     ("geral", "Visão Geral"),
     ("credito", "Crédito"),
-    ("mapa", "Mapa Regional"),
-    ("pib", "PIB por Setor"),
     ("rj", "Recuperação Judicial"),
     ("if", "Instituições Financeiras"),
+    ("mapa", "Mapa Regional"),
+    ("pib", "PIB por Setor"),
     ("governanca", "Governança"),
+]
+
+# o que aparece no MENU principal (ordem definida pelo usuário, jul/2026) —
+# "rj" ficou de fora de propósito: Recuperação Judicial agora é uma aba
+# INTERNA da seção Crédito (sub-navegação), não um item de menu próprio
+SECOES_MENU = [
+    ("geral", "Visão Geral"),
+    ("credito", "Crédito"),
+    ("if", "Instituições Financeiras"),
+    ("mapa", "Mapa Regional"),
+    ("pib", "PIB por Setor"),
+    ("governanca", "Governança"),
+]
+
+# sub-abas dentro do "guarda-chuva" Crédito: a seção credito e a rj mostram
+# essa mesma barrinha no topo, alternando entre as duas rotas
+SUBNAV_CREDITO = [
+    ("credito", "Carteira de Crédito"),
+    ("rj", "Recuperação Judicial"),
 ]
 
 
@@ -262,6 +281,18 @@ SHELL_CSS = """
   .app-nav button.active { color: var(--ink); background: var(--surface-2); border-color: var(--line); }
   .app-secao { display: none; }
   .app-secao.active { display: block; }
+
+  .sub-nav {
+    display: inline-flex; gap: .3rem; background: var(--surface-2); padding: .25rem;
+    border-radius: 999px; border: 1px solid var(--line); margin: 0 0 1.2rem;
+  }
+  .sub-nav button {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .78rem; font-weight: 600; letter-spacing: .02em;
+    padding: .42rem .95rem; border-radius: 999px; cursor: pointer; transition: background .12s, color .12s;
+  }
+  .sub-nav button:hover { color: var(--ink); }
+  .sub-nav button.active { background: var(--teal); color: #04211d; }
 
   .vg-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.1rem; }
   @media (max-width: 1100px) { .vg-cards { grid-template-columns: repeat(2, 1fr); } }
@@ -622,13 +653,30 @@ function traduzErroFirebase(err) {{
 
 def montar_shell(dominios: dict[str, dict]) -> str:
     estilos = "\n".join(dominios[nome]["style"] for nome, _ in SECOES)
+    # menu principal vem de SECOES_MENU (não de SECOES): "rj" não tem botão
+    # próprio — vive como sub-aba dentro de Crédito
     menu = "\n    ".join(
         f'<button data-secao="{nome}"{" class=\"active\"" if nome == "geral" else ""}>{rotulo}</button>'
-        for nome, rotulo in SECOES
+        for nome, rotulo in SECOES_MENU
     )
+
+    # sub-navegação do guarda-chuva Crédito, repetida no topo das duas
+    # seções (credito e rj) com a aba corrente marcada
+    def subnav_credito(ativa: str) -> str:
+        botoes = "".join(
+            f'<button data-secao="{nome}" class="{"active" if nome == ativa else ""}">{rotulo}</button>'
+            for nome, rotulo in SUBNAV_CREDITO)
+        return f'<div class="sub-nav" role="tablist" aria-label="Seções de Crédito">{botoes}</div>\n'
+
+    def corpo_secao(nome: str) -> str:
+        corpo = dominios[nome]["body"]
+        if nome in dict(SUBNAV_CREDITO):
+            corpo = subnav_credito(nome) + corpo
+        return corpo
+
     secoes_html = "\n\n".join(
         f'  <section id="secao-{nome}" class="app-secao{" active" if nome == "geral" else ""}">\n'
-        f'{dominios[nome]["body"]}\n  </section>'
+        f'{corpo_secao(nome)}\n  </section>'
         for nome, _ in SECOES
     )
     eager = [nome for nome, _ in SECOES if nome not in DOMINIOS_DIFERIDOS]
@@ -702,8 +750,12 @@ def montar_shell(dominios: dict[str, dict]) -> str:
   }}
   function irParaSecao(nome, atualizarHash) {{
     if (!SECOES.includes(nome)) nome = 'geral';
+    // "rj" não tem botão próprio no menu — pertence ao guarda-chuva
+    // Crédito, então o botão Crédito fica aceso pras duas rotas
+    const nomeMenu = nome === 'rj' ? 'credito' : nome;
     document.querySelectorAll('.app-secao').forEach(s => s.classList.toggle('active', s.id === 'secao-' + nome));
-    document.querySelectorAll('.app-nav button').forEach(b => b.classList.toggle('active', b.dataset.secao === nome));
+    document.querySelectorAll('.app-nav button').forEach(b => b.classList.toggle('active', b.dataset.secao === nomeMenu));
+    document.querySelectorAll('.sub-nav button').forEach(b => b.classList.toggle('active', b.dataset.secao === nome));
     carregarDominioDiferido(nome);
     if (!inicializadas[nome] && window.SISTEMA_APPS && window.SISTEMA_APPS[nome]) {{
       window.SISTEMA_APPS[nome]();
@@ -713,7 +765,7 @@ def montar_shell(dominios: dict[str, dict]) -> str:
     if (atualizarHash !== false) location.hash = nome;
   }}
   window.irParaSecao = irParaSecao;
-  document.querySelectorAll('.app-nav button').forEach(b => {{
+  document.querySelectorAll('.app-nav button, .sub-nav button').forEach(b => {{
     b.addEventListener('click', () => irParaSecao(b.dataset.secao, true));
   }});
   window.addEventListener('hashchange', () => irParaSecao(location.hash.slice(1), false));
