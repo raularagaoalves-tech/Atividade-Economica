@@ -92,7 +92,12 @@ def carregar_municipios(con: sqlite3.Connection) -> None:
     mun = mun[["cod_ibge7", "cod_ibge6", "nome", "nome_norm",
                "uf", "cod_uf", "regiao"]]
 
-    coord = pd.read_csv(RAW / "ibge" / "municipios_coord.csv",
+    # coordenadas (lat/lng/capital) são dado-semente ESTÁTICO versionado em
+    # data/manual — não vêm de nenhuma API do pipeline (foram obtidas uma
+    # única vez, jul/2026). Ficava em data/raw/ibge e quebrou a primeira
+    # execução na nuvem (GitHub Actions parte do zero, sem o arquivo);
+    # movido pra data/manual, que viaja no repositório.
+    coord = pd.read_csv(MANUAL / "municipios_coord.csv",
                         encoding="utf-8", dtype={"codigo_ibge": str})
     coord = coord.rename(columns={"codigo_ibge": "cod_ibge7",
                                   "latitude": "lat", "longitude": "lng"})
