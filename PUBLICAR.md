@@ -87,17 +87,25 @@ repositório que apenas redireciona pra `reports/index.html`:
 (Posso criar esse arquivo de redirecionamento agora mesmo, se preferir —
 é só avisar.)
 
-## Rotina mensal
+## Rotina mensal — automática
 
-Depois de rodar `atualizar.bat` normalmente (que já chama
-`gerar_sistema.py` no fim), publique a versão nova:
-```
-git add reports/ src/ supabase/
-git commit -m "Atualização mensal"
-git push
-```
-O GitHub Pages atualiza a URL publicada automaticamente em 1-2 minutos após
-o push — não precisa repetir nenhum passo de configuração.
+A atualização roda sozinha, na nuvem, todo dia 20 do mês (`.github/workflows/atualizacao-mensal.yml`):
+baixa os dados novos, reconstrói o banco, gera os relatórios e o site, e
+publica tudo de volta no repositório — sem depender do seu computador estar
+ligado. O GitHub Pages atualiza a URL publicada automaticamente em 1-2
+minutos depois.
+
+- **Ver se rodou:** aba **Actions** do repositório no GitHub mostra o
+  histórico de execuções (verde = deu certo, vermelho = falhou).
+- **Rodar fora do dia 20** (pra testar, ou por qualquer motivo): aba
+  **Actions** → **Atualizacao mensal** (menu à esquerda) → botão **Run
+  workflow**.
+- **Se falhar:** o GitHub manda um e-mail automático pro dono do
+  repositório avisando — não precisa configurar nada a mais pra isso.
+- **Rodar manualmente no seu computador continua funcionando** do mesmo
+  jeito de sempre (`atualizar.bat` + `git add` / `commit` / `push`), caso
+  quira os relatórios `.xlsx` localmente ou queira forçar uma atualização
+  fora do calendário sem usar o GitHub.
 
 ## O que muda no dia a dia
 

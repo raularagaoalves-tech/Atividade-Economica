@@ -1,0 +1,100 @@
+name: Atualizacao mensal
+
+# Repete, na nuvem, o mesmo pipeline de atualizar.bat: descobre series novas,
+# baixa dados das fontes oficiais, recarrega o banco, gera os relatorios e o
+# portal unico, e publica tudo de volta no repositorio automaticamente.
+# Roda gratis (repositorio publico = Actions ilimitado) e nao depende do
+# computador de ninguem estar ligado.
+
+on:
+  schedule:
+    - cron: '0 12 20 * *'  # dia 20 de cada mes, 12:00 UTC (09:00 em Brasilia)
+  workflow_dispatch: {}    # permite rodar manualmente pela aba "Actions", pra teste
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Baixar o repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # data/raw e data/db nao ficam versionados (ver .gitignore) — sem isso,
+      # cada execucao baixaria TODO o historico do zero (anos de ESTBAN/CAGED/
+      # IF.data) todo mes. O cache guarda o que ja foi baixado na execucao
+      # anterior; baixar_dados.py pula arquivo que ja existe, entao a maioria
+      # dos meses so baixa mesmo a competencia nova.
+      - name: Restaurar dados da execucao anterior (cache incremental)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/raw
+            data/db
+          key: dados-${{ github.run_id }}
+          restore-keys: |
+            dados-
+
+      - name: "1/10 Descobrir series de credito detalhado (tolerante a falha)"
+        run: python src/descobrir_credito_detalhado.py
+        continue-on-error: true
+
+      - name: "2/10 Baixar dados (BACEN, IBGE, CAGED, CNJ)"
+        run: python src/baixar_dados.py
+
+      - name: "3/10 Carregar banco de dados"
+        run: python src/carregar_dados.py
+
+      - name: "4/10 Gerar relatorios"
+        run: python src/gerar_relatorios.py
+
+      - name: "5/10 Gerar dashboard de credito"
+        run: python src/gerar_dashboard.py
+
+      - name: "6/10 Gerar mapa regional"
+        run: python src/gerar_mapa.py
+
+      - name: "7/10 Gerar PIB por setor"
+        run: python src/gerar_pib_setorial.py
+
+      - name: "8/10 Gerar dashboard de Recuperacao Judicial"
+        run: python src/gerar_recuperacao_judicial.py
+
+      - name: "9/10 Gerar dashboard de Instituicoes Financeiras"
+        run: python src/gerar_instituicoes_financeiras.py
+
+      - name: "10/10 Gerar portal unico (index.html)"
+        run: python src/gerar_sistema.py
+
+      # salva mesmo se algum passo anterior falhar (if: always()) — assim uma
+      # fonte fora do ar num mes nao faz perder o que ja tinha sido baixado
+      - name: Salvar cache de dados pra proxima execucao
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw
+            data/db
+          key: dados-${{ github.run_id }}
+
+      - name: Publicar mudancas (commit + push automatico)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/ data/manual/
+          if git diff --cached --quiet; then
+            echo "Nada novo para publicar este mes."
+            exit 0
+          fi
+          git commit -m "Atualizacao mensal automatica ($(date +%Y-%m-%d))"
+          git push
