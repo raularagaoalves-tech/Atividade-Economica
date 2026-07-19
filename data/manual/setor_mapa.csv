@@ -1,0 +1,11 @@
+# Chave de cruzamento entre as classificações setoriais das fontes:
+#   setor_padrao : setor consolidado do sistema (linhas do v_setor_consolidado)
+#   setor_sgs    : coluna `setor` da semente sgs_series.csv (crédito BACEN)
+#   secoes_cnae  : seções CNAE 2.0 (CAGED e CEMPRE) — separadas por vírgula
+#   setor_vab    : componente do VAB no PIB municipal (t/5938)
+setor_padrao;setor_sgs;secoes_cnae;setor_vab
+AGROPECUARIA;AGROPECUARIA;A;AGRO
+INDUSTRIA;INDUSTRIA;"B,C,D,E,F";INDUSTRIA
+SERVICOS;SERVICOS;"G,H,I,J,K,L,M,N,R,S";SERVICOS
+ADM_PUBLICA;;"O,P,Q";ADM_PUBLICA
+OUTROS;OUTROS;"T,U";

@@ -1,0 +1,337 @@
+<style>
+</style>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Sistema Atividade Econômica</p>
+      <div class="brand"><span class="dot"></span><h1>Visão Geral</h1></div>
+    </div>
+    <div class="as-of" id="vg-as-of"></div>
+  </header>
+
+  <section class="kpi-row" id="vg-kpi-row" aria-label="Indicadores consolidados"></section>
+
+  <section class="vg-cards" id="vg-cards" aria-label="Atalhos para as seções"></section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Destaques</p>
+        <p class="card-sub">Lidos automaticamente a partir dos dados já carregados nas outras seções — sem consulta adicional.</p>
+      </div>
+    </div>
+    <div class="vg-destaques" id="vg-destaques"></div>
+  </section>
+
+<script>
+const DADOS = __DADOS_JSON__;
+
+function fmtReaisMilhoes(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' tri';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' bi';
+  return v.toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' mi';
+}
+function fmtReaisMil(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v/1e9).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' tri';
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' bi';
+  return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+}
+function fmtPct(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function fmtContagem(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' mil';
+  return v.toLocaleString('pt-BR');
+}
+function fmtNum(v, casas=0) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}); }
+// PIB per capita (pibpc) já vem em reais — nunca chega a milhão, então uma
+// escala compacta tri/bi/mi (pensada pra totais agregados) só produz "0 mi"
+function fmtReaisPerCapita(v) { return v == null ? '—' : 'R$ ' + v.toLocaleString('pt-BR',{maximumFractionDigits:0}); }
+
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function fmtCompetencia(comp) {
+  if (comp == null) return '—';
+  const ano = Math.floor(comp / 100), mes = comp % 100;
+  return `${MESES[mes - 1]}/${String(ano).slice(2)}`;
+}
+function fmtTrimestre(cod) {
+  if (cod == null) return '—';
+  const ano = Math.floor(cod / 100), tri = cod % 100;
+  return `${tri}TRI${ano}`;
+}
+
+// último índice não-nulo de um array de série histórica
+function ultimoIndiceValido(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return i;
+  return null;
+}
+
+function dadosDominio(nome) {
+  return (window.SISTEMA_DADOS && window.SISTEMA_DADOS[nome]) || null;
+}
+
+// variação % entre duas linhas de uma série mensal (competencia AAAAMM),
+// buscando por competência exata em vez de por índice — tolera séries com
+// buracos. campo é o nome do valor a comparar (nível, não % já calculado).
+function variacoesMensais(serie, campo) {
+  if (!serie || serie.length < 2) return { mensal: null, ano: null, doze: null };
+  const porCompetencia = new Map(serie.map(r => [r.competencia, r[campo]]));
+  const atualRow = serie[serie.length - 1];
+  const atual = atualRow[campo];
+  const comp = atualRow.competencia;
+  const ano = Math.floor(comp / 100), mes = comp % 100;
+  const compMesAnterior = mes === 1 ? (ano - 1) * 100 + 12 : comp - 1;
+  const compDezAnoAnterior = (ano - 1) * 100 + 12;
+  const comp12MesesAtras = comp - 100;
+  const calc = compRef => {
+    const ref = porCompetencia.get(compRef);
+    return (atual == null || ref == null) ? null : Math.round((100 * atual / ref - 100) * 10) / 10;
+  };
+  return { mensal: calc(compMesAnterior), ano: calc(compDezAnoAnterior), doze: calc(comp12MesesAtras) };
+}
+
+// maior valor histórico de um campo numa série mensal + a competência em que ocorreu
+function maxHistorico(serie, campo) {
+  let melhor = null;
+  for (const r of serie || []) {
+    if (r[campo] == null) continue;
+    if (!melhor || r[campo] > melhor.valor) melhor = { valor: r[campo], competencia: r.competencia };
+  }
+  return melhor;
+}
+
+// soma um campo de histórico compartilhado (arrays paralelos ao período) por
+// UF, e calcula a variação % entre os dois últimos pontos anuais com dado
+function variacaoAnualUF(ufs, campo, periodos) {
+  if (!ufs || !periodos) return null;
+  const totais = periodos.map((_, i) => {
+    let soma = null;
+    for (const uf of ufs) {
+      const v = uf[campo] && uf[campo][i];
+      if (v != null) soma = (soma == null ? 0 : soma) + v;
+    }
+    return soma;
+  });
+  let idxAtual = -1;
+  for (let i = totais.length - 1; i >= 0; i--) if (totais[i] != null) { idxAtual = i; break; }
+  if (idxAtual <= 0) return null;
+  let idxAnterior = -1;
+  for (let i = idxAtual - 1; i >= 0; i--) if (totais[i] != null) { idxAnterior = i; break; }
+  if (idxAnterior < 0) return null;
+  return Math.round((100 * totais[idxAtual] / totais[idxAnterior] - 100) * 10) / 10;
+}
+
+function fmtVar(v) { return v == null ? '—' : (v >= 0 ? '+' : '') + fmtPct(v); }
+
+// valor de uma UF na competência mais recente de um domínio com histórico
+// compartilhado (índice fixo — nunca "último valor não-nulo" por entidade,
+// isso misturaria competências diferentes entre UFs; mesmo cuidado do
+// dashboard de Recuperação Judicial)
+function valorAtualPorIndice(arr, idx) {
+  if (!arr) return 0;
+  const v = arr[idx];
+  return v == null ? 0 : v;
+}
+
+function renderKpis(cr, mp, pb, rj) {
+  let pibVar = null, pibLabelAtual = null, pibLabelAnterior = null;
+  if (pb) {
+    const setor = pb.setores.find(s => s.nome === 'PIB a preços de mercado');
+    if (setor) {
+      const idx = ultimoIndiceValido(setor.hist_tri_anterior);
+      if (idx != null) {
+        pibVar = setor.hist_tri_anterior[idx];
+        pibLabelAtual = fmtTrimestre(pb.periodos[idx]);
+        pibLabelAnterior = idx > 0 ? fmtTrimestre(pb.periodos[idx - 1]) : null;
+      }
+    }
+  }
+  const credVar = cr ? variacoesMensais(cr.serie_mensal, 'saldo_total') : { mensal: null, ano: null, doze: null };
+  const credPibMax = cr ? maxHistorico(cr.serie_mensal, 'credito_pib_pct') : null;
+  const popVar = mp ? variacaoAnualUF(mp.ufs, 'hist_populacao', mp.meta.periodos.populacao) : null;
+  const empVar = mp ? variacaoAnualUF(mp.ufs, 'hist_empresas', mp.meta.periodos.empresas) : null;
+  const empregoVar = variacoesMensais(DADOS.emprego, 'saldo_12m');
+  const empregoAtual = DADOS.emprego.length ? DADOS.emprego[DADOS.emprego.length - 1].saldo_12m : null;
+
+  let rjAtual = null, rjMM = null, rjA12 = null, falenciaAtual = null;
+  if (rj && rj.periodos.length) {
+    const idx = rj.periodos.length - 1;
+    const catRj = rj.categorias.find(c => c.key === 'rj');
+    const catFalencia = rj.categorias.find(c => c.key === 'falencia');
+    rjAtual = catRj.hist_valor[idx];
+    rjMM = catRj.hist_mm_pct[idx];
+    rjA12 = catRj.hist_a12_pct[idx];
+    falenciaAtual = catFalencia.hist_valor[idx];
+  }
+
+  const itens = [
+    {
+      label: 'PIB Brasil (var. T/T-1)', valor: fmtPct(pibVar), signed: true, v: pibVar, hue: 'teal', secao: 'pib',
+      caption: (pibLabelAtual && pibLabelAnterior) ? `${pibLabelAtual} × ${pibLabelAnterior}` : 'sem comparação disponível',
+    },
+    {
+      label: 'Crédito total (SFN)', valor: cr ? fmtReaisMilhoes(cr.kpi.saldo_total) : '—', hue: 'amber', secao: 'credito',
+      caption: `M/M ${fmtVar(credVar.mensal)} · no ano ${fmtVar(credVar.ano)} · 12M ${fmtVar(credVar.doze)}`,
+    },
+    {
+      label: 'Crédito / PIB', valor: cr ? fmtPct(cr.kpi.credito_pib_pct) : '—', hue: 'rose', secao: 'credito',
+      caption: credPibMax ? `máx. histórico ${fmtPct(credPibMax.valor)} (${fmtCompetencia(credPibMax.competencia)})` : 'sem histórico disponível',
+    },
+    {
+      label: 'População (Brasil)', valor: mp ? fmtContagem(mp.meta.total_populacao) : '—', hue: 'violet', secao: 'mapa',
+      caption: `var. no ano ${fmtVar(popVar)}`,
+    },
+    {
+      label: 'Empresas ativas', valor: mp ? fmtContagem(mp.meta.total_empresas) : '—', hue: 'green', secao: 'mapa',
+      caption: `var. no ano ${fmtVar(empVar)} · série anual (CEMPRE), sem quebra mensal`,
+    },
+    {
+      label: 'Emprego, saldo 12M (CAGED)', valor: fmtNum(empregoAtual), signed: true, v: empregoAtual, hue: 'teal', secao: 'mapa',
+      caption: `M/M ${fmtVar(empregoVar.mensal)} · no ano ${fmtVar(empregoVar.ano)} · 12M ${fmtVar(empregoVar.doze)}`,
+    },
+    {
+      label: 'Recuperação Judicial (mês)', valor: rj ? fmtContagem(rjAtual) : '—', hue: 'rose', secao: 'rj',
+      caption: rj
+        ? `M/M ${fmtVar(rjMM)} · 12M ${fmtVar(rjA12)} · Falência: ${fmtContagem(falenciaAtual)} processos`
+        : 'sem dados disponíveis',
+    },
+  ];
+  document.getElementById('vg-kpi-row').innerHTML = itens.map(k => {
+    const cls = k.signed && k.v != null ? (k.v >= 0 ? 'up' : 'down') : '';
+    return `<div class="kpi" data-ir="${k.secao}" style="--kpi-hue:var(--${k.hue})">
+      <div class="label">${k.label}</div>
+      <div class="value ${cls}">${k.valor}</div>
+      <div class="kpi-caption">${k.caption}</div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('#vg-kpi-row .kpi').forEach(el => {
+    el.addEventListener('click', () => { location.hash = el.dataset.ir; });
+  });
+}
+
+function renderCards(cr, mp, pb, rj) {
+  const cards = [
+    {
+      secao: 'credito', titulo: 'Crédito',
+      sub: cr ? `Competência ${cr.meta.competencia_max} · Crédito/PIB ${fmtPct(cr.kpi.credito_pib_pct)}` : 'Sem dados',
+      metrica: cr ? fmtReaisMilhoes(cr.kpi.saldo_total) : '—',
+    },
+    {
+      secao: 'mapa', titulo: 'Mapa Regional',
+      sub: mp ? `${fmtContagem(mp.meta.total_municipios)} municípios · PIB ${mp.meta.ano_pib}` : 'Sem dados',
+      metrica: mp ? fmtReaisMil(mp.meta.total_pib_mil) : '—',
+    },
+    {
+      secao: 'pib', titulo: 'PIB por Setor',
+      sub: pb ? `${pb.meta.total_trimestres} trimestres · ${pb.meta.trimestre_min}–${pb.meta.trimestre_max}` : 'Sem dados',
+      metrica: pb ? pb.meta.trimestre_max : '—',
+    },
+    {
+      secao: 'rj', titulo: 'Recuperação Judicial',
+      sub: rj && rj.periodos.length ? `Competência ${rj.meta.competencia_max} · 27 UFs (CNJ DataJud)` : 'Sem dados',
+      metrica: rj && rj.periodos.length ? fmtContagem(rj.categorias.find(c => c.key === 'rj').hist_valor[rj.periodos.length - 1]) : '—',
+    },
+  ];
+  document.getElementById('vg-cards').innerHTML = cards.map(c => `
+    <div class="card vg-card" data-ir="${c.secao}" role="button" tabindex="0">
+      <div class="card-head">
+        <div>
+          <p class="card-title">${c.titulo}</p>
+          <p class="card-sub">${c.sub}</p>
+        </div>
+      </div>
+      <div class="vg-metric">${c.metrica}</div>
+      <div class="vg-goto">Ver detalhes →</div>
+    </div>`).join('');
+  const ir = nome => { location.hash = nome; };
+  document.querySelectorAll('#vg-cards .vg-card').forEach(el => {
+    el.addEventListener('click', () => ir(el.dataset.ir));
+    el.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ir(el.dataset.ir); } });
+  });
+}
+
+// melhor (maior) e pior (menor) item de uma lista, por um campo numérico
+function extremos(lista, campo) {
+  let melhor = null, pior = null;
+  for (const item of lista || []) {
+    const v = item[campo];
+    if (v == null) continue;
+    if (!melhor || v > melhor[campo]) melhor = item;
+    if (!pior || v < pior[campo]) pior = item;
+  }
+  return { melhor, pior };
+}
+
+function renderDestaques(mp, pb, rj) {
+  const itens = [];
+
+  if (pb) {
+    const setoresComVar = [];
+    for (const s of pb.setores) {
+      if (s.grupo === 'AGREGADO') continue;
+      const idx = ultimoIndiceValido(s.hist_tri_ano_anterior);
+      if (idx == null) continue;
+      const v = s.hist_tri_ano_anterior[idx];
+      if (v == null) continue;
+      setoresComVar.push({ nome: s.nome, v });
+    }
+    const { melhor, pior } = extremos(setoresComVar, 'v');
+    if (melhor) itens.push({ tag: 'PIB por setor', txt: `${melhor.nome} lidera a alta interanual`, num: fmtPct(melhor.v), sinal: 'up' });
+    if (pior && pior !== melhor) itens.push({ tag: 'PIB por setor', txt: `${pior.nome} lidera a queda interanual`, num: fmtPct(pior.v), sinal: 'down' });
+  }
+
+  if (mp && mp.ufs && mp.ufs.length) {
+    const { melhor, pior } = extremos(mp.ufs, 'credito_pib_pct');
+    if (melhor) itens.push({ tag: 'Mapa · UF', txt: `${melhor.uf} tem a maior relação Crédito/PIB entre os estados`, num: fmtPct(melhor.credito_pib_pct), sinal: 'up' });
+    if (pior && pior !== melhor) itens.push({ tag: 'Mapa · UF', txt: `${pior.uf} tem a menor relação Crédito/PIB entre os estados`, num: fmtPct(pior.credito_pib_pct), sinal: 'down' });
+  }
+
+  if (mp && mp.municipios && mp.municipios.length) {
+    const { melhor, pior } = extremos(mp.municipios, 'pibpc');
+    if (melhor) itens.push({ tag: 'Mapa · Município', txt: `${melhor.nome} (${melhor.uf}) tem o maior PIB per capita do país`, num: fmtReaisPerCapita(melhor.pibpc), sinal: 'up' });
+    if (pior && pior !== melhor) itens.push({ tag: 'Mapa · Município', txt: `${pior.nome} (${pior.uf}) tem o menor PIB per capita do país`, num: fmtReaisPerCapita(pior.pibpc), sinal: 'down' });
+  }
+
+  if (rj && rj.ufs && rj.ufs.length && rj.periodos.length) {
+    const idx = rj.periodos.length - 1;
+    const porUf = rj.ufs.map(u => ({ uf: u.uf, v: valorAtualPorIndice(u.hist_rj, idx) })).filter(d => d.v > 0);
+    if (porUf.length) {
+      const lider = porUf.reduce((a, b) => (b.v > a.v ? b : a));
+      itens.push({ tag: 'Recuperação Judicial', txt: `${lider.uf} concentra o maior número de processos de RJ no mês`, num: fmtContagem(lider.v), sinal: 'down' });
+    }
+  }
+
+  document.getElementById('vg-destaques').innerHTML = itens.length
+    ? itens.map(i => `<div class="vg-destaque"><span class="tag">${i.tag}</span><span class="txt">${i.txt}</span><span class="num ${i.sinal}">${i.num}</span></div>`).join('')
+    : '<p class="card-sub">Sem destaques disponíveis.</p>';
+}
+
+function init() {
+  const cr = dadosDominio('credito');
+  // resumo pequeno embutido no próprio DADOS da Visão Geral (não em
+  // window.SISTEMA_DADOS.mapa) — o payload completo do mapa é ~11MB e fica
+  // com carga diferida (só injetado quando a seção Mapa Regional é aberta
+  // pela primeira vez), então não está disponível aqui no load inicial
+  const mp = DADOS.resumo_mapa;
+  const pb = dadosDominio('pib');
+  const rj = dadosDominio('rj');
+
+  const partes = [];
+  if (cr) partes.push('CRÉDITO ' + cr.meta.competencia_max);
+  if (pb) partes.push('PIB ' + pb.meta.trimestre_max);
+  if (mp) partes.push('MAPA ' + mp.meta.ano_pib);
+  if (rj && rj.periodos.length) partes.push('RJ ' + rj.meta.competencia_max);
+  document.getElementById('vg-as-of').textContent = partes.join(' · ');
+
+  renderKpis(cr, mp, pb, rj);
+  renderCards(cr, mp, pb, rj);
+  renderDestaques(mp, pb, rj);
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>

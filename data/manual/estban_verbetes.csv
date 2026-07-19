@@ -1,0 +1,21 @@
+# Verbetes do ESTBAN a carregar (contas do balancete por município, doc 4500).
+# O arquivo do BACEN traz uma coluna por verbete (VERBETE_NNN_...); esta
+# semente define QUAIS entram no banco e o grupo analítico de cada um.
+# Valores do arquivo em R$ (unidades).
+verbete;nome;grupo
+160;Operações de crédito (total);CREDITO
+161;Empréstimos e títulos descontados;CREDITO
+162;Financiamentos;CREDITO
+163;Financiamentos rurais à agricultura (custeio/investimento);CREDITO_RURAL
+164;Financiamentos rurais à pecuária (custeio/investimento);CREDITO_RURAL
+165;Financiamentos rurais à agricultura (comercialização);CREDITO_RURAL
+166;Financiamentos rurais à pecuária (comercialização);CREDITO_RURAL
+167;Financiamentos agroindustriais;CREDITO_RURAL
+169;Financiamentos imobiliários;CREDITO_IMOBILIARIO
+171;Outras operações de crédito;CREDITO
+174;Provisão para operações de crédito;PROVISAO
+180;Arrendamento mercantil;ARRENDAMENTO
+399;Total do ativo;ATIVO
+420;Depósitos de poupança;DEPOSITO
+432;Depósitos a prazo;DEPOSITO
+610;Patrimônio líquido;PATRIMONIO

@@ -1,0 +1,177 @@
+<style>
+</style>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Sistema Atividade Econômica</p>
+      <div class="brand"><span class="dot"></span><h1>Governança</h1></div>
+    </div>
+  </header>
+
+  <div id="gv-nao-configurado" class="card" style="display:none;">
+    <p class="card-title">Login ainda não configurado</p>
+    <p class="card-sub">Preencha SUPABASE_URL e SUPABASE_ANON_KEY em gerar_sistema.py e regenere o site — ver PUBLICAR.md.</p>
+  </div>
+
+  <div id="gv-restrito" class="card" style="display:none;">
+    <p class="card-title">Acesso restrito</p>
+    <p class="card-sub">Esta seção é só pra administradores.</p>
+  </div>
+
+  <div id="gv-conteudo" style="display:none;">
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Cadastros pendentes</p><p class="card-sub">Aprove ou rejeite quem se cadastrou e ainda não tem acesso liberado.</p></div>
+      </div>
+      <div id="gv-pendentes"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Usuários</p><p class="card-sub">Contas já aprovadas ou rejeitadas.</p></div>
+      </div>
+      <div id="gv-usuarios"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Log de auditoria</p><p class="card-sub">Login, logout e navegação — até 500 eventos mais recentes.</p></div>
+        <div class="busca-wrap" style="flex:0 1 260px;">
+          <input type="text" class="busca-input" id="gv-audit-filtro" placeholder="Filtrar por e-mail...">
+        </div>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tbl-if" id="gv-audit-tabela">
+          <thead><tr>
+            <th data-col="criado_em">Quando</th>
+            <th data-col="email">E-mail</th>
+            <th data-col="evento">Evento</th>
+            <th data-col="detalhe">Detalhe</th>
+          </tr></thead>
+          <tbody id="gv-audit-corpo"></tbody>
+        </table>
+      </div>
+      <div class="tabela-contagem" id="gv-audit-contagem"></div>
+    </section>
+  </div>
+
+<script>
+function fmtData(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+const EVENTO_LABEL = {
+  login: 'Login', logout: 'Logout', visita: 'Visita', cadastro: 'Cadastro',
+  aprovacao: 'Aprovação', rejeicao: 'Rejeição',
+};
+
+let gvPendentes = [], gvUsuarios = [], gvAudit = [];
+let gvAuditFiltro = '';
+let gvAuditOrdem = { col: 'criado_em', dir: -1 };
+
+function compararGv(va, vb, dir) {
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  const cmp = typeof va === 'string' ? va.localeCompare(vb, 'pt-BR') : (va < vb ? -1 : va > vb ? 1 : 0);
+  return dir * cmp;
+}
+
+async function carregarTudo() {
+  const sb = window.SISTEMA_AUTH.supabase;
+  const [pend, usu, aud] = await Promise.all([
+    sb.from('profiles').select('*').eq('status', 'pendente').order('created_at', { ascending: true }),
+    sb.from('profiles').select('*').neq('status', 'pendente').order('created_at', { ascending: false }),
+    sb.from('audit_log').select('*').order('criado_em', { ascending: false }).limit(500),
+  ]);
+  gvPendentes = pend.data || [];
+  gvUsuarios = usu.data || [];
+  gvAudit = aud.data || [];
+  renderPendentes();
+  renderUsuarios();
+  renderAudit();
+}
+
+async function decidir(id, status) {
+  const sb = window.SISTEMA_AUTH.supabase;
+  const eu = window.SISTEMA_AUTH.usuario;
+  await sb.from('profiles').update({ status, approved_at: new Date().toISOString(), approved_by: eu.id }).eq('id', id);
+  await sb.from('audit_log').insert({ user_id: eu.id, email: eu.email, evento: status === 'aprovado' ? 'aprovacao' : 'rejeicao', detalhe: id });
+  await carregarTudo();
+}
+
+function renderPendentes() {
+  const cont = document.getElementById('gv-pendentes');
+  cont.innerHTML = gvPendentes.length ? gvPendentes.map(p => `
+    <div class="gv-row">
+      <span class="gv-email">${p.email}</span>
+      <span class="badge">cadastrado em ${fmtData(p.created_at)}</span>
+      <button class="tbtn" data-aprovar="${p.id}">Aprovar</button>
+      <button class="tbtn" data-rejeitar="${p.id}">Rejeitar</button>
+    </div>`).join('') : '<p class="drawer-empty">Nenhum cadastro pendente.</p>';
+  cont.querySelectorAll('[data-aprovar]').forEach(b => b.addEventListener('click', () => decidir(b.dataset.aprovar, 'aprovado')));
+  cont.querySelectorAll('[data-rejeitar]').forEach(b => b.addEventListener('click', () => decidir(b.dataset.rejeitar, 'rejeitado')));
+}
+
+function renderUsuarios() {
+  const cont = document.getElementById('gv-usuarios');
+  cont.innerHTML = gvUsuarios.length ? gvUsuarios.map(u => `
+    <div class="gv-row">
+      <span class="gv-email">${u.email}${u.is_admin ? ' <span class="badge">admin</span>' : ''}</span>
+      <span class="badge" style="color:${u.status === 'aprovado' ? 'var(--green-lite,#4ade80)' : 'var(--rose-lite,#fb7185)'}">${u.status}</span>
+      <span class="card-sub">desde ${fmtData(u.approved_at || u.created_at)}</span>
+      ${u.status === 'rejeitado' ? `<button class="tbtn" data-aprovar="${u.id}">Aprovar mesmo assim</button>` : ''}
+    </div>`).join('') : '<p class="drawer-empty">Nenhum usuário aprovado ou rejeitado ainda.</p>';
+  cont.querySelectorAll('[data-aprovar]').forEach(b => b.addEventListener('click', () => decidir(b.dataset.aprovar, 'aprovado')));
+}
+
+function renderAudit() {
+  const q = (gvAuditFiltro || '').toLowerCase();
+  const linhas = gvAudit
+    .filter(a => !q || (a.email || '').toLowerCase().includes(q))
+    .sort((a, b) => compararGv(a[gvAuditOrdem.col], b[gvAuditOrdem.col], gvAuditOrdem.dir));
+  const corpo = document.getElementById('gv-audit-corpo');
+  corpo.innerHTML = linhas.length ? linhas.map(a => `
+    <tr>
+      <td>${fmtData(a.criado_em)}</td>
+      <td>${a.email}</td>
+      <td>${EVENTO_LABEL[a.evento] || a.evento}</td>
+      <td>${a.detalhe || '—'}</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="drawer-empty">Nenhum evento encontrado.</td></tr>';
+  document.getElementById('gv-audit-contagem').textContent =
+    `${linhas.length} evento${linhas.length === 1 ? '' : 's'}`;
+}
+
+function popularAudit() {
+  document.getElementById('gv-audit-filtro').addEventListener('input', e => {
+    gvAuditFiltro = e.target.value;
+    renderAudit();
+  });
+  document.querySelectorAll('#gv-audit-tabela th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (gvAuditOrdem.col === col) gvAuditOrdem.dir *= -1;
+      else { gvAuditOrdem.col = col; gvAuditOrdem.dir = col === 'criado_em' ? -1 : 1; }
+      renderAudit();
+    });
+  });
+}
+
+function init() {
+  const auth = window.SISTEMA_AUTH;
+  if (!auth || !auth.configurado) {
+    document.getElementById('gv-nao-configurado').style.display = 'block';
+    return;
+  }
+  if (!auth.usuario || !auth.usuario.isAdmin) {
+    document.getElementById('gv-restrito').style.display = 'block';
+    return;
+  }
+  document.getElementById('gv-conteudo').style.display = 'block';
+  popularAudit();
+  carregarTudo();
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>

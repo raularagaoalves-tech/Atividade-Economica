@@ -1,0 +1,12 @@
+# Séries do IPEADATA (api ODATA4 — www.ipeadata.gov.br/api/odata4).
+# grupo: POPULACAO_HIST (estimativas municipais desde 1992),
+#        EMPREGO_HIST (CAGED nacional mensal: antigo 1999-2019 + novo 2020+)
+# atualiza: CACHE (mantém arquivo baixado; use --force p/ renovar) | SEMPRE
+codigo;nome;grupo;atualiza;unidade
+ESTIMA_PO;População residente - estimativas 1º de julho;POPULACAO_HIST;CACHE;habitante
+CAGED12_ADMIS;Admissões - CAGED antigo (1999-2019);EMPREGO_HIST;CACHE;pessoa
+CAGED12_DESLIG;Demissões - CAGED antigo (1999-2019);EMPREGO_HIST;CACHE;pessoa
+CAGED12_SALDO12;Saldo - CAGED antigo (1999-2019);EMPREGO_HIST;CACHE;pessoa
+CAGED12_ADMISN12;Admissões - novo CAGED sem ajuste;EMPREGO_HIST;SEMPRE;pessoa
+CAGED12_DESLIGN12;Demissões - novo CAGED sem ajuste;EMPREGO_HIST;SEMPRE;pessoa
+CAGED12_SALDON12;Saldo - novo CAGED sem ajuste;EMPREGO_HIST;SEMPRE;pessoa

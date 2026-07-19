@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Atividade Econômica — PIB por Setor</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:        #070a12;
+    --surface:     #10141f;
+    --surface-2:   #161d2e;
+    --line:        #232b40;
+    --line-soft:   #1a2233;
+    --ink:         #eef2f9;
+    --ink-soft:    #8ea0bd;
+    --ink-muted:   #7583a0;
+
+    --teal:        #0d9488;
+    --teal-lite:   #5eead4;
+    --amber:       #d97706;
+    --amber-lite:  #fcd34d;
+    --rose:        #f43f5e;
+    --rose-lite:   #fda4af;
+    --violet:      #8b5cf6;
+    --violet-lite: #ddd6fe;
+    --green:       #059669;
+    --green-lite:  #6ee7b7;
+    --red:         #dc2626;
+
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page); color: var(--ink); font-family: var(--sans);
+    font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; position: relative; overflow-x: hidden;
+  }
+  ::selection { background: rgba(13,148,136,.14); color: var(--ink); }
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(13,148,136,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,148,136,.055) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+    animation: drift 34s linear infinite;
+  }
+  @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 48px 96px, 48px 96px; } }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .32;
+    width: 46vw; height: 46vw; border-radius: 50%; top: -18vw; right: -12vw;
+    background: radial-gradient(circle, rgba(13,148,136,.5), transparent 70%);
+  }
+  @media (prefers-reduced-motion: reduce) { .bg-grid { animation: none; } }
+  main { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 2.25rem 2rem 5rem; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap;
+    gap: .75rem 1.5rem; padding-bottom: 1.6rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: .7rem; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--teal);
+    box-shadow: 0 0 0 3px rgba(13,148,136,.14), 0 0 14px 2px rgba(13,148,136,.65);
+    display: inline-block; transform: translateY(-1px); animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .brand .dot { animation: none; } }
+  h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 .3rem; }
+  .as-of { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); }
+  .as-of b { color: var(--ink); font-weight: 600; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+  @media (max-width: 980px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-left: 3px solid var(--kpi-hue, var(--teal));
+    border-radius: var(--radius); padding: 1.05rem 1.15rem;
+  }
+  .kpi .label { font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .45rem; }
+  .kpi .value { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; color: var(--ink); }
+  .kpi .value.up { color: var(--green); } .kpi .value.down { color: var(--red); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; margin-bottom: .9rem; }
+  .card-title { font-size: .95rem; font-weight: 700; color: var(--ink); margin: 0 0 .2rem; }
+  .card-sub { font-size: .78rem; color: var(--ink-muted); }
+
+  .pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); flex-wrap: wrap; }
+  .pill {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+    padding: .38rem .8rem; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active { background: var(--pill-hue, var(--teal)); color: #04130f; }
+  .pill:focus-visible, .tbtn:focus-visible, button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .tbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    font-family: var(--sans); font-size: .72rem; font-weight: 600; padding: .35rem .7rem; border-radius: 8px; cursor: pointer;
+  }
+  .tbtn:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--line); stroke-width: 1; }
+  .crosshair-line { stroke: var(--ink-soft); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: 0; }
+  .hover-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .pane-wrap { position: relative; }
+  .x-ticks { display: flex; justify-content: space-between; margin: .3rem 2px 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-muted); }
+
+  .hover-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(11,15,26,.97); border: 1px solid var(--line); border-radius: 10px;
+    padding: .6rem .75rem; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+    box-shadow: 0 12px 28px -12px rgba(0,0,0,.7); opacity: 0; transition: opacity .1s;
+    min-width: 168px; white-space: nowrap;
+  }
+  .hover-tip .t-name { color: var(--ink); font-weight: 700; margin-bottom: .3rem; display: block; letter-spacing: .02em; }
+  .hover-tip .t-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .15rem; }
+  .hover-tip .t-val { color: var(--ink); font-weight: 700; }
+  .hover-tip .t-key { display: flex; align-items: center; gap: .4rem; color: var(--ink-soft); }
+  .hover-tip .t-key i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: none; }
+
+  .hc-asof { font-family: var(--mono); font-size: .68rem; color: var(--ink-muted); margin-top: .35rem; cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
+  .hc-asof:hover { color: var(--ink-soft); text-decoration: underline; }
+
+  .bar-row { display: grid; grid-template-columns: 260px 1fr 80px; align-items: center; gap: .6rem; padding: .32rem 0; }
+  .bar-row.grande .b-label { font-weight: 700; color: var(--ink); }
+  .bar-row.sub .b-label { padding-left: 1rem; }
+  .bar-row .b-label { font-size: .76rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .bar-row .b-label:hover { color: var(--ink); text-decoration: underline; }
+  .b-rank { font-family: var(--mono); color: var(--ink-muted); font-size: .7rem; width: 26px; display: inline-block; }
+  .bar-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; overflow: visible; }
+  .bar-fill { position: absolute; top: 0; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .bar-row .b-value { font-family: var(--mono); font-size: .78rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .bar-row .b-value.up { color: var(--green); } .bar-row .b-value.down { color: var(--red); }
+
+  .table-view { display: none; margin-top: .8rem; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); padding-top: .6rem; }
+  .table-view.open { display: block; }
+  table.datatable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  table.datatable th { text-align: left; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); padding: .4rem .5rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  table.datatable td { padding: .38rem .5rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.datatable td:first-child { font-family: var(--sans); color: var(--ink); }
+
+  .legend-row { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: .45rem; font-size: .74rem; color: var(--ink-soft); font-family: var(--mono); }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+
+  .comp-add { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  select#comp-select {
+    appearance: none; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: .8rem; padding: .42rem 1.8rem .42rem .7rem; border-radius: 8px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    max-width: 320px;
+  }
+  .comp-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; min-height: 2rem; }
+  .comp-chip {
+    display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .4rem .3rem .65rem;
+    border-radius: 999px; font-size: .78rem; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-left: 3px solid var(--chip-cor, var(--teal));
+  }
+  .comp-chip button {
+    appearance: none; border: none; background: var(--line-soft); color: var(--ink-soft); width: 18px; height: 18px;
+    border-radius: 50%; cursor: pointer; font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .comp-chip button:hover { color: var(--ink); background: var(--line); }
+  .drawer-empty { color: var(--ink-muted); font-size: .82rem; padding: .4rem 0 .2rem; }
+  .drawer-body { display: none; }
+  .drawer-body.open { display: block; }
+  .drawer-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  .drawer-head h2 { font-size: 1.15rem; margin: 0; color: var(--ink); }
+  .badge {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .hist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.3rem; margin: .8rem 0 1rem; }
+  .hist-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .hist-card .hc-title { font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .3rem; }
+  .hist-card .hc-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--ink); margin-bottom: .3rem; }
+  .hist-card svg.mini-chart { display: block; width: 100%; height: 220px; overflow: visible; }
+  .mc-wrap { position: relative; }
+  .mc-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .mc-tip { min-width: 150px; font-size: .68rem; padding: .45rem .6rem; }
+  .mc-tip .t-row { justify-content: flex-start; gap: .5rem; }
+
+  footer.foot { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .74rem; color: var(--ink-muted); }
+  footer.foot p { margin: .25rem 0; }
+  footer.foot code { font-family: var(--mono); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">Sistema Atividade Econômica</p>
+        <div class="brand"><span class="dot"></span><h1>PIB por Setor — Oferta &amp; Demanda</h1></div>
+      </div>
+      <div class="as-of" id="as-of-line"></div>
+    </header>
+
+    <section class="kpi-row" id="kpi-row" aria-label="Indicadores principais"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">PIB a preços de mercado</p>
+          <p class="card-sub">Série trimestral nacional (IBGE, Contas Nacionais Trimestrais) — índice de volume encadeado ou taxa de variação, conforme a métrica escolhida.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-end;">
+          <div class="pills" id="metric-pills" role="group" aria-label="Métrica"></div>
+          <div class="pills" id="window-pills" role="group" aria-label="Janela de tempo"></div>
+        </div>
+      </div>
+      <div class="legend-row" style="margin-bottom:.7rem;">
+        <span class="legend-item" id="hero-legend"></span>
+        <button class="tbtn" id="hero-table-btn" style="margin-left:auto;">Ver tabela</button>
+      </div>
+      <div class="pane-wrap">
+        <svg class="chart" id="svg-hero"></svg>
+        <div class="hover-catcher" id="hero-catcher"></div>
+        <div class="hover-tip" id="hero-tip"></div>
+      </div>
+      <div class="x-ticks" id="hero-xticks"></div>
+      <button class="hc-asof" id="hero-asof" style="margin-top:.5rem;"></button>
+      <div class="table-view" id="hero-table"></div>
+    </section>
+
+    <section class="card" id="drawer-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento do setor</p><p class="card-sub">Clique num setor do ranking (ou na comparação) para ver as 5 métricas históricas.</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-empty">Nenhum setor selecionado ainda.</div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </section>
+
+    <section class="card" id="comparacao-card">
+      <div class="card-head">
+        <div><p class="card-title">Comparação de setores</p><p class="card-sub">Escolha até 5 setores para comparar a mesma métrica lado a lado.</p></div>
+        <div class="pills" id="comp-metric-pills" role="group" aria-label="Métrica da comparação"></div>
+      </div>
+      <div class="comp-add">
+        <select id="comp-select"></select>
+        <button class="tbtn" id="comp-add-btn">Adicionar</button>
+      </div>
+      <div class="comp-chips" id="comp-chips"></div>
+      <div id="comp-chart-wrap"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Atividades — ótica da oferta (VAB)</p><p class="card-sub">Variação interanual (T/T-4) da última competência</p></div>
+      </div>
+      <div id="bars-oferta"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Componentes da demanda</p><p class="card-sub">Variação interanual (T/T-4) da última competência</p></div>
+      </div>
+      <div id="bars-demanda"></div>
+    </section>
+
+    <footer class="foot">
+      <p>Fonte: IBGE, Sistema de Contas Nacionais Trimestrais (SIDRA t/1620 e t/5932) — índice de volume encadeado (não é valor monetário) e taxas de variação (%).</p>
+      <p>"T/T-1" = variação ante o trimestre imediatamente anterior · "T/T-4" = variação ante o mesmo trimestre do ano anterior (interanual) · "Acum. 4 tri" e "Acum. no ano" = variações acumuladas.</p>
+    </footer>
+  </main>
+
+<script>
+const DADOS = {"meta": {"trimestre_max": 202601, "trimestre_min": 199601, "total_trimestres": 121}, "periodos": [199601, 199602, 199603, 199604, 199701, 199702, 199703, 199704, 199801, 199802, 199803, 199804, 199901, 199902, 199903, 199904, 200001, 200002, 200003, 200004, 200101, 200102, 200103, 200104, 200201, 200202, 200203, 200204, 200301, 200302, 200303, 200304, 200401, 200402, 200403, 200404, 200501, 200502, 200503, 200504, 200601, 200602, 200603, 200604, 200701, 200702, 200703, 200704, 200801, 200802, 200803, 200804, 200901, 200902, 200903, 200904, 201001, 201002, 201003, 201004, 201101, 201102, 201103, 201104, 201201, 201202, 201203, 201204, 201301, 201302, 201303, 201304, 201401, 201402, 201403, 201404, 201501, 201502, 201503, 201504, 201601, 201602, 201603, 201604, 201701, 201702, 201703, 201704, 201801, 201802, 201803, 201804, 201901, 201902, 201903, 201904, 202001, 202002, 202003, 202004, 202101, 202102, 202103, 202104, 202201, 202202, 202203, 202204, 202301, 202302, 202303, 202304, 202401, 202402, 202403, 202404, 202501, 202502, 202503, 202504, 202601], "setores": [{"nome": "Administração, saúde e educação públicas e seguridade social", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [103.02, 105.43, 105.31, 103.49, 103.75, 104.81, 104.36, 104.15, 105.33, 107.81, 108.08, 107.92, 109.51, 111.64, 111.41, 110.68, 111.01, 113.09, 113.23, 113.28, 114.44, 117.38, 117.65, 117.16, 118.08, 120.64, 120.49, 120.02, 120.62, 124.25, 124.72, 125.04, 129.72, 127.98, 128.74, 128.52, 128.87, 131.13, 130.78, 129.52, 133.43, 135.79, 135.74, 135.65, 137.43, 139.03, 138.58, 137.26, 136.9, 139.74, 139.87, 139.31, 141.2, 143.96, 144.49, 145.2, 144.68, 147.49, 147.69, 147.78, 148.11, 150.68, 150.23, 149.79, 150.13, 153.56, 151.82, 151.34, 152.5, 155.65, 156.59, 155.55, 152.87, 156.49, 156.35, 155.17, 153.58, 156.14, 156.91, 155.77, 154.16, 157.45, 157.55, 154.84, 153.69, 157.12, 157.64, 156.05, 154.89, 157.5, 157.35, 155.38, 154.51, 156.62, 155.9, 155.43, 154.06, 142.57, 147.34, 150.31, 148.49, 152.04, 153.88, 155.56, 154.35, 154.26, 156.81, 154.43, 155.28, 158.29, 159.08, 157.1, 157.69, 160.89, 162.33, 159.7, 158.65, 161.03, 162.79, 161.2, 160.33], "hist_tri_anterior": [null, 2.1, 0.5, -0.6, 0.1, -0.8, 0.3, 0.9, 0.8, 1.0, 0.7, 1.0, 1.4, 0.3, 0.4, 0.4, -1.0, 1.7, 0.9, 1.1, 0.4, 1.4, 1.0, 0.3, 1.0, 0.2, 0.7, 0.6, 0.3, 1.6, 1.0, 1.3, 2.2, -1.4, 1.2, 0.8, 0.1, 0.1, 0.5, 0.3, 2.1, 1.0, 0.7, 0.9, 0.5, 0.3, 0.3, -0.4, -1.3, 1.7, 0.7, 0.3, 1.5, 0.7, 0.7, 1.1, 0.1, 0.3, 0.6, 0.6, 0.8, 0.3, -0.1, 0.6, -0.5, 1.9, -0.7, 0.1, 1.9, -0.1, 0.8, 0.1, -0.7, 0.6, -0.2, 0.1, 0.2, -0.4, 0.4, 0.3, -0.9, 1.0, 0.0, -0.5, -0.2, 0.7, 0.4, -0.1, 0.0, -0.2, 0.3, -0.8, 0.5, -0.2, -0.6, 0.3, -1.0, -7.7, 3.2, 2.5, 0.0, 0.7, 1.1, 1.7, 0.3, -1.5, 1.2, -0.4, 1.1, 0.7, 0.2, -0.1, 0.1, 1.2, 0.5, -0.3, 0.2, -0.1, 0.4, 0.4, 0.4], "hist_tri_ano_anterior": [4.7, 4.8, 4.5, 3.2, 0.7, -0.6, -0.9, 0.6, 1.5, 2.9, 3.6, 3.6, 4.0, 3.6, 3.1, 2.6, 1.4, 1.3, 1.6, 2.3, 3.1, 3.8, 3.9, 3.4, 3.2, 2.8, 2.4, 2.4, 2.1, 3.0, 3.5, 4.2, 7.6, 3.0, 3.2, 2.8, -0.7, 2.5, 1.6, 0.8, 3.5, 3.6, 3.8, 4.7, 3.0, 2.4, 2.1, 1.2, -0.4, 0.5, 0.9, 1.5, 3.1, 3.0, 3.3, 4.2, 2.5, 2.5, 2.2, 1.8, 2.4, 2.2, 1.7, 1.4, 1.4, 1.9, 1.1, 1.0, 1.6, 1.4, 3.1, 2.8, 0.2, 0.5, -0.2, -0.2, 0.5, -0.2, 0.4, 0.4, 0.4, 0.8, 0.4, -0.6, -0.3, -0.2, 0.1, 0.8, 0.8, 0.2, -0.2, -0.4, -0.2, -0.6, -0.9, 0.0, -0.3, -9.0, -5.5, -3.3, -3.6, 6.6, 4.4, 3.5, 3.9, 1.5, 1.9, -0.7, 0.6, 2.6, 1.4, 1.7, 1.6, 1.6, 2.0, 1.7, 0.6, 0.1, 0.3, 0.9, 1.1], "hist_acum_4tri": [2.9, 2.9, 3.6, 4.3, 3.3, 1.9, 0.6, 0.0, 0.2, 1.0, 2.2, 2.9, 3.5, 3.7, 3.6, 3.3, 2.6, 2.1, 1.7, 1.7, 2.1, 2.7, 3.3, 3.6, 3.6, 3.3, 2.9, 2.7, 2.4, 2.5, 2.8, 3.2, 4.6, 4.6, 4.5, 4.1, 2.1, 1.9, 1.5, 1.0, 2.1, 2.4, 2.9, 3.9, 3.8, 3.5, 3.0, 2.2, 1.3, 0.8, 0.6, 0.6, 1.5, 2.1, 2.7, 3.4, 3.3, 3.1, 2.8, 2.2, 2.2, 2.1, 2.0, 1.9, 1.7, 1.6, 1.4, 1.3, 1.4, 1.3, 1.8, 2.2, 1.9, 1.7, 0.8, 0.1, 0.2, 0.0, 0.1, 0.2, 0.2, 0.5, 0.5, 0.3, 0.1, -0.2, -0.3, 0.1, 0.4, 0.5, 0.4, 0.1, -0.2, -0.4, -0.5, -0.4, -0.4, -2.5, -3.7, -4.5, -5.4, -1.6, 0.9, 2.6, 4.6, 3.3, 2.7, 1.6, 0.8, 1.1, 1.0, 1.6, 1.8, 1.6, 1.7, 1.7, 1.5, 1.1, 0.7, 0.5, 0.6], "hist_acum_ano": [4.7, 4.8, 4.7, 4.3, 0.7, 0.1, -0.3, 0.0, 1.5, 2.2, 2.7, 2.9, 4.0, 3.8, 3.5, 3.3, 1.4, 1.3, 1.4, 1.7, 3.1, 3.4, 3.6, 3.6, 3.2, 3.0, 2.8, 2.7, 2.1, 2.6, 2.9, 3.2, 7.6, 5.2, 4.6, 4.1, -0.7, 0.9, 1.1, 1.0, 3.5, 3.5, 3.6, 3.9, 3.0, 2.7, 2.5, 2.2, -0.4, 0.1, 0.4, 0.6, 3.1, 3.1, 3.2, 3.4, 2.5, 2.5, 2.4, 2.2, 2.4, 2.3, 2.1, 1.9, 1.4, 1.6, 1.4, 1.3, 1.6, 1.5, 2.0, 2.2, 0.2, 0.4, 0.2, 0.1, 0.5, 0.1, 0.2, 0.2, 0.4, 0.6, 0.5, 0.3, -0.3, -0.3, -0.1, 0.1, 0.8, 0.5, 0.3, 0.1, -0.2, -0.4, -0.6, -0.4, -0.3, -4.7, -4.9, -4.5, -3.6, 1.3, 2.4, 2.6, 3.9, 2.7, 2.4, 1.6, 0.6, 1.6, 1.6, 1.6, 1.6, 1.6, 1.7, 1.7, 0.6, 0.3, 0.3, 0.5, 1.1]}, {"nome": "Agropecuária - total", "grupo": "OFERTA", "nivel": "GRANDE_GRUPO", "hist_indice": [105.32, 105.5, 108.1, 92.89, 112.67, 110.16, 109.69, 82.64, 111.07, 124.57, 115.41, 78.27, 125.05, 126.56, 119.43, 86.29, 132.75, 130.92, 121.22, 84.88, 136.59, 134.9, 128.45, 94.27, 143.03, 144.8, 143.46, 102.56, 165.01, 164.26, 145.57, 103.35, 165.03, 167.55, 152.2, 104.95, 170.28, 171.54, 149.15, 105.37, 171.13, 170.97, 165.72, 116.18, 177.74, 171.99, 173.48, 121.05, 186.2, 191.02, 182.18, 122.05, 183.59, 180.49, 168.51, 123.44, 196.2, 198.64, 177.85, 127.28, 206.74, 200.08, 191.49, 141.13, 183.52, 199.76, 200.56, 132.8, 223.0, 220.04, 195.19, 138.33, 238.38, 220.45, 197.24, 142.16, 255.39, 230.36, 196.81, 142.13, 235.89, 218.13, 188.11, 139.47, 283.97, 253.24, 207.74, 147.28, 276.45, 255.26, 217.7, 154.48, 277.82, 257.28, 219.76, 152.78, 297.62, 271.38, 223.52, 153.01, 309.43, 266.28, 208.28, 161.57, 288.89, 263.83, 226.66, 155.54, 359.09, 323.39, 248.43, 156.39, 334.28, 311.67, 247.07, 153.6, 377.24, 347.58, 272.12, 172.17, 379.78], "hist_tri_anterior": [null, 1.4, 5.4, 23.6, -19.0, -1.5, 3.2, 8.6, -11.0, 12.5, -2.6, -2.1, 4.2, 1.7, 0.5, 3.8, -0.6, -0.4, -0.9, 0.6, 3.1, 0.2, 2.3, 5.2, -2.9, 2.4, 7.0, 2.8, 2.3, 0.0, -2.9, 1.7, 1.2, 1.7, 0.0, -1.2, 2.5, 1.3, -4.7, 0.9, 3.4, 1.2, 4.3, 0.5, -1.6, -2.1, 7.5, 0.0, -0.1, 3.2, 1.9, -4.0, -2.7, -1.1, 0.9, 4.3, 1.9, 2.3, -2.3, 1.8, 2.3, -1.0, 5.1, 5.0, -19.6, 12.4, 11.3, -5.1, 0.8, 3.3, -0.3, 1.4, 0.7, -1.7, 2.2, 2.8, 2.2, -2.9, -0.8, 2.3, -7.3, 0.1, 1.7, 5.1, 11.8, -3.2, -2.2, 0.8, 1.6, 0.5, 2.1, 1.9, -4.4, 1.5, 2.2, 1.1, 1.4, 0.6, -1.4, 0.8, 3.6, -5.2, -5.8, 15.9, -9.6, -0.7, 4.9, 4.1, 14.9, -3.9, -4.3, -2.6, 3.4, -1.1, 0.4, -2.5, 15.8, -2.1, 0.0, 0.1, 2.0], "hist_tri_ano_anterior": [2.6, 2.2, -0.6, 8.9, 7.0, 4.4, 1.5, -11.0, -1.4, 13.1, 5.2, -5.3, 12.6, 1.6, 3.5, 10.3, 6.2, 3.4, 1.5, -1.6, 2.9, 3.0, 6.0, 11.1, 4.7, 7.3, 11.7, 8.8, 15.4, 13.4, 1.5, 0.8, 0.0, 2.0, 4.6, 1.5, 3.2, 2.4, -2.0, 0.4, 0.5, -0.3, 11.1, 10.3, 3.9, 0.6, 4.7, 4.2, 4.8, 11.1, 5.0, 0.8, -1.4, -5.5, -7.5, 1.1, 6.9, 10.1, 5.5, 3.1, 5.4, 0.7, 7.7, 10.9, -11.2, -0.2, 4.7, -5.9, 21.5, 10.2, -2.7, 4.2, 6.9, 0.2, 1.1, 2.8, 7.1, 4.5, -0.2, 0.0, -7.6, -5.3, -4.4, -1.9, 20.4, 16.1, 10.4, 5.6, -2.6, 0.8, 4.8, 4.9, 0.5, 0.8, 0.9, -1.1, 7.1, 5.5, 1.7, 0.2, 4.0, -1.9, -6.8, 5.6, -6.6, -0.9, 8.8, -3.7, 24.3, 22.6, 9.6, 0.5, -6.9, -3.6, -0.5, -1.8, 12.9, 11.5, 10.1, 12.1, 0.7], "hist_acum_4tri": [-1.9, -1.7, -3.7, 3.0, 4.1, 4.7, 5.2, 0.8, -1.3, 1.0, 1.9, 3.4, 7.2, 4.0, 3.6, 6.5, 4.9, 5.4, 4.9, 2.7, 1.8, 1.7, 2.9, 5.2, 5.7, 6.9, 8.4, 8.0, 11.0, 12.7, 9.9, 8.3, 4.0, 1.1, 1.9, 2.0, 2.9, 3.0, 1.3, 1.1, 0.4, -0.4, 2.9, 4.6, 5.6, 5.9, 4.3, 3.2, 3.5, 6.4, 6.4, 5.8, 4.0, -0.5, -3.8, -3.7, -1.5, 2.8, 6.3, 6.7, 6.3, 3.7, 4.2, 5.6, 0.8, 0.6, -0.1, -3.1, 5.6, 8.5, 6.4, 8.4, 4.7, 2.1, 3.0, 2.8, 2.9, 4.1, 3.8, 3.3, -1.2, -3.9, -4.9, -5.2, 3.0, 9.1, 12.8, 14.2, 6.6, 2.5, 1.4, 1.3, 2.3, 2.3, 1.4, 0.4, 2.5, 3.8, 4.0, 4.2, 3.2, 1.1, -0.9, 0.0, -3.4, -3.1, 0.4, -1.1, 8.7, 15.4, 15.5, 16.3, 5.7, -1.3, -3.4, -3.7, 2.5, 7.1, 9.6, 11.7, 7.5], "hist_acum_ano": [2.6, 2.4, 1.3, 3.0, 7.0, 5.7, 4.3, 0.8, -1.4, 5.8, 5.6, 3.4, 12.6, 6.8, 5.7, 6.5, 6.2, 4.8, 3.7, 2.7, 2.9, 3.0, 3.9, 5.2, 4.7, 6.0, 7.8, 8.0, 15.4, 14.4, 10.1, 8.3, 0.0, 1.0, 2.1, 2.0, 3.2, 2.8, 1.3, 1.1, 0.5, 0.1, 3.4, 4.6, 3.9, 2.2, 3.0, 3.2, 4.8, 7.9, 6.9, 5.8, -1.4, -3.5, -4.8, -3.7, 6.9, 8.4, 7.5, 6.7, 5.4, 3.0, 4.5, 5.6, -11.2, -5.8, -2.4, -3.1, 21.5, 15.6, 9.3, 8.4, 6.9, 3.6, 2.8, 2.8, 7.1, 5.9, 4.0, 3.3, -7.6, -6.5, -5.9, -5.2, 20.4, 18.3, 16.0, 14.2, -2.6, -1.0, 0.6, 1.3, 0.5, 0.6, 0.7, 0.4, 7.1, 6.3, 5.0, 4.2, 4.0, 1.2, -1.1, 0.0, -6.6, -4.0, -0.6, -1.1, 24.3, 23.5, 19.4, 16.3, -6.9, -5.4, -4.1, -3.7, 12.9, 12.2, 11.6, 11.7, 0.7]}, {"nome": "Atividades financeiras, de seguros e serviços relacionados", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [95.22, 92.43, 109.66, 106.21, 96.83, 93.5, 110.82, 115.8, 94.82, 92.06, 109.4, 114.49, 95.44, 92.5, 109.69, 114.32, 97.73, 94.41, 111.92, 116.98, 97.81, 95.18, 113.46, 119.44, 102.09, 99.39, 118.03, 122.53, 99.5, 95.6, 113.46, 119.26, 100.9, 109.41, 112.56, 121.36, 110.86, 112.08, 122.18, 124.92, 122.42, 126.5, 130.64, 128.88, 136.6, 141.82, 148.63, 158.21, 159.77, 164.32, 168.78, 169.85, 173.45, 177.04, 181.8, 189.08, 187.71, 191.07, 199.57, 210.26, 202.96, 205.76, 211.19, 217.66, 209.74, 209.97, 211.32, 219.51, 210.89, 217.58, 217.96, 219.46, 214.19, 213.82, 213.77, 219.21, 212.57, 211.4, 210.64, 215.98, 207.65, 204.78, 201.92, 207.19, 199.34, 201.7, 200.8, 210.27, 201.16, 204.4, 204.73, 209.96, 203.76, 202.5, 207.25, 215.57, 204.52, 212.79, 217.41, 221.37, 210.49, 208.4, 210.45, 220.61, 206.19, 204.51, 214.03, 223.56, 219.27, 220.95, 230.36, 241.53, 232.12, 235.18, 244.4, 250.63, 239.69, 243.43, 245.46, 262.01, 246.32], "hist_tri_anterior": [null, -0.9, 0.8, -8.0, 10.4, -1.2, 0.8, 0.2, -1.8, -0.3, 0.5, 0.4, -0.2, 0.0, 0.1, 0.0, 2.0, 0.0, 0.1, 0.3, -0.4, 0.6, 0.9, 1.3, 1.3, -0.2, 2.3, -0.1, -4.2, -2.7, 3.8, 1.9, -2.1, 7.3, -6.3, 5.7, 1.7, -0.2, 2.5, 1.3, 4.9, 1.9, -0.1, -1.7, 10.1, 2.8, 3.0, 6.0, 3.3, 2.5, 1.6, -0.2, 4.2, 2.2, 1.6, 2.5, 1.8, 2.0, 3.3, 3.4, -0.5, 1.3, 1.7, 0.8, -0.3, -0.3, 0.0, 1.5, -0.7, 2.7, -0.2, -1.6, 0.5, -0.4, -0.2, 0.0, -0.2, -0.7, -0.3, -0.4, -0.7, -1.7, -1.3, -0.8, -0.1, 0.7, -0.4, 1.1, -0.3, 1.1, -0.3, -0.7, 1.2, -0.8, 1.3, 0.8, -0.8, 4.0, 0.6, -1.1, -0.6, -0.6, -1.1, 1.6, -1.9, -0.2, 2.0, 1.5, 3.0, 1.3, 1.6, 2.0, 1.0, 1.4, 1.6, -0.3, 0.8, 1.0, -0.8, 3.4, -0.6], "hist_tri_ano_anterior": [3.6, 3.2, 2.8, -5.0, 1.7, 1.2, 1.1, 9.0, -2.1, -1.5, -1.3, -1.1, 0.7, 0.5, 0.3, -0.1, 2.4, 2.1, 2.0, 2.3, 0.1, 0.8, 1.4, 2.1, 4.4, 4.4, 4.0, 2.6, -2.5, -3.8, -3.9, -2.7, 1.4, 14.4, -0.8, 1.8, 9.9, 2.4, 8.5, 2.9, 10.4, 12.9, 6.9, 3.2, 11.6, 12.1, 13.8, 22.8, 17.0, 15.9, 13.6, 7.4, 8.6, 7.7, 7.7, 11.3, 8.2, 7.9, 9.8, 11.2, 8.1, 7.7, 5.8, 3.5, 3.3, 2.0, 0.1, 0.8, 0.5, 3.6, 3.1, 0.0, 1.6, -1.7, -1.9, -0.1, -0.8, -1.1, -1.5, -1.5, -2.3, -3.1, -4.1, -4.1, -4.0, -1.5, -0.6, 1.5, 0.9, 1.3, 2.0, -0.1, 1.3, -0.9, 1.2, 2.7, 0.4, 5.1, 4.9, 2.7, 2.9, -2.1, -3.2, -0.3, -2.0, -1.9, 1.7, 1.3, 6.3, 8.0, 7.6, 8.0, 5.9, 6.4, 6.1, 3.8, 3.3, 3.5, 0.4, 4.5, 2.8], "hist_acum_4tri": [9.7, 11.9, 6.5, 0.9, 0.5, 0.0, -0.4, 3.3, 2.4, 1.8, 1.2, -1.5, -0.9, -0.4, 0.0, 0.3, 0.7, 1.1, 1.5, 2.2, 1.7, 1.4, 1.2, 1.2, 2.2, 3.0, 3.7, 3.8, 2.2, 0.3, -1.8, -3.2, -2.3, 1.7, 2.6, 3.8, 5.8, 3.1, 5.5, 5.8, 6.0, 8.6, 8.1, 8.2, 8.5, 8.5, 10.2, 15.1, 16.4, 17.3, 17.1, 13.2, 11.2, 9.2, 7.8, 8.8, 8.8, 8.8, 9.3, 9.3, 9.3, 9.2, 8.2, 6.2, 5.0, 3.7, 2.2, 1.5, 0.9, 1.3, 2.0, 1.8, 2.1, 0.7, -0.5, -0.6, -1.1, -1.0, -0.9, -1.2, -1.6, -2.1, -2.8, -3.4, -3.8, -3.4, -2.6, -1.1, 0.1, 0.8, 1.4, 1.0, 1.1, 0.5, 0.4, 1.1, 0.8, 2.3, 3.3, 3.3, 3.9, 2.1, 0.0, -0.7, -1.9, -1.9, -0.6, -0.2, 1.9, 4.3, 5.8, 7.5, 7.4, 7.0, 6.6, 5.5, 4.9, 4.1, 2.7, 2.9, 2.8], "hist_acum_ano": [3.6, 3.4, 3.2, 0.9, 1.7, 1.4, 1.3, 3.3, -2.1, -1.8, -1.6, -1.5, 0.7, 0.6, 0.5, 0.3, 2.4, 2.2, 2.2, 2.2, 0.1, 0.4, 0.8, 1.2, 4.4, 4.4, 4.3, 3.8, -2.5, -3.2, -3.4, -3.2, 1.4, 7.8, 4.6, 3.8, 9.9, 6.0, 6.9, 5.8, 10.4, 11.7, 10.0, 8.2, 11.6, 11.9, 12.5, 15.1, 17.0, 16.4, 15.4, 13.2, 8.6, 8.1, 8.0, 8.8, 8.2, 8.1, 8.7, 9.3, 8.1, 7.9, 7.2, 6.2, 3.3, 2.7, 1.8, 1.5, 0.5, 2.1, 2.4, 1.8, 1.6, -0.1, -0.7, -0.6, -0.8, -0.9, -1.1, -1.2, -2.3, -2.7, -3.2, -3.4, -4.0, -2.8, -2.0, -1.1, 0.9, 1.1, 1.4, 1.0, 1.3, 0.2, 0.5, 1.1, 0.4, 2.7, 3.5, 3.3, 2.9, 0.4, -0.8, -0.7, -2.0, -2.0, -0.7, -0.2, 6.3, 7.2, 7.3, 7.5, 5.9, 6.2, 6.1, 5.5, 3.3, 3.4, 2.4, 2.9, 2.8]}, {"nome": "Atividades imobiliárias", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [102.14, 102.85, 102.99, 101.56, 103.53, 104.29, 104.65, 107.34, 106.58, 107.47, 107.29, 109.26, 110.59, 110.26, 109.53, 110.22, 111.27, 112.95, 115.01, 119.1, 116.52, 117.8, 118.25, 120.29, 120.03, 121.64, 123.06, 126.36, 128.21, 127.9, 126.32, 127.68, 129.1, 133.14, 137.16, 138.72, 137.58, 138.77, 140.49, 143.73, 142.13, 145.11, 148.55, 151.07, 152.28, 155.24, 156.89, 157.66, 156.48, 157.61, 159.2, 157.4, 159.17, 161.0, 163.23, 166.17, 166.82, 169.66, 171.37, 173.46, 173.03, 172.36, 173.33, 175.76, 177.75, 182.28, 184.04, 185.75, 190.57, 191.11, 191.77, 193.75, 193.54, 192.24, 192.12, 194.93, 193.26, 191.53, 191.64, 193.45, 193.13, 192.37, 191.66, 194.01, 192.27, 194.46, 196.23, 198.46, 197.85, 200.84, 203.14, 205.49, 204.4, 207.11, 207.62, 207.83, 207.51, 208.87, 211.27, 213.71, 211.65, 213.2, 214.66, 217.43, 212.82, 216.08, 220.49, 223.55, 218.7, 222.35, 228.52, 229.54, 226.93, 230.37, 235.21, 234.67, 231.34, 235.03, 239.85, 239.17, 238.03], "hist_tri_anterior": [null, 0.7, 0.9, -2.4, 2.2, 0.7, 1.1, 1.5, -0.5, 0.9, 0.6, 0.7, 1.5, -0.2, 0.0, -0.5, 1.3, 1.6, 1.8, 2.4, -0.4, 0.4, 0.3, 1.3, 0.4, 1.2, 1.6, 1.7, 2.3, -0.5, -1.0, 0.2, 2.0, 2.9, 3.1, 0.5, 0.0, 0.6, 1.2, 1.3, 0.8, 1.2, 1.8, 1.3, 2.6, 1.1, 0.5, 0.6, -0.1, 0.5, 1.0, -1.5, 1.7, 0.9, 1.4, 1.4, 0.8, 1.6, 1.1, 0.8, 0.1, -0.4, 0.7, 0.5, 1.8, 2.7, 0.7, 0.8, 2.8, 0.6, 0.5, 0.3, 0.1, -0.3, 0.1, 0.7, -0.6, -0.6, 0.2, 0.1, 0.3, -0.2, -0.3, 0.1, 0.5, 0.8, 0.5, 0.5, 1.3, 1.0, 0.7, 1.0, 0.4, 1.0, 0.0, -0.4, 1.1, 0.3, 0.7, 0.7, 0.5, 0.2, -0.1, 1.0, -0.4, 0.9, 1.0, 1.0, 0.3, 0.6, 1.2, 0.6, 1.0, 0.8, 0.8, 0.1, 0.3, 0.8, 0.7, 0.2, 1.2], "hist_tri_ano_anterior": [3.1, 2.9, 2.7, 0.9, 1.4, 1.4, 1.6, 5.7, 2.9, 3.1, 2.5, 1.8, 3.8, 2.6, 2.1, 0.9, 0.6, 2.4, 5.0, 8.1, 4.7, 4.3, 2.8, 1.0, 3.0, 3.3, 4.1, 5.0, 6.8, 5.1, 2.7, 1.0, 0.7, 4.1, 8.6, 8.6, 6.6, 4.2, 2.4, 3.6, 3.3, 4.6, 5.7, 5.1, 7.1, 7.0, 5.6, 4.4, 2.8, 1.5, 1.5, -0.2, 1.7, 2.2, 2.5, 5.6, 4.8, 5.4, 5.0, 4.4, 3.7, 1.6, 1.1, 1.3, 2.7, 5.8, 6.2, 5.7, 7.2, 4.8, 4.2, 4.3, 1.6, 0.6, 0.2, 0.6, -0.1, -0.4, -0.2, -0.8, -0.1, 0.4, 0.0, 0.3, -0.4, 1.1, 2.4, 2.3, 2.9, 3.3, 3.5, 3.5, 3.3, 3.1, 2.2, 1.1, 1.5, 0.9, 1.8, 2.8, 2.0, 2.1, 1.6, 1.7, 0.6, 1.3, 2.7, 2.8, 2.8, 2.9, 3.6, 2.7, 3.8, 3.6, 2.9, 2.2, 1.9, 2.0, 2.0, 1.9, 2.9], "hist_acum_4tri": [1.7, 2.0, 2.4, 2.4, 2.0, 1.6, 1.3, 2.5, 2.9, 3.3, 3.5, 2.6, 2.8, 2.7, 2.6, 2.3, 1.5, 1.5, 2.2, 4.0, 5.1, 5.5, 4.9, 3.2, 2.8, 2.5, 2.8, 3.9, 4.8, 5.3, 4.9, 3.9, 2.4, 2.1, 3.6, 5.5, 7.0, 7.0, 5.4, 4.2, 3.4, 3.5, 4.3, 4.7, 5.6, 6.2, 6.2, 6.0, 4.9, 3.5, 2.5, 1.4, 1.1, 1.3, 1.6, 3.0, 3.8, 4.6, 5.2, 4.9, 4.6, 3.7, 2.7, 1.9, 1.7, 2.7, 4.0, 5.1, 6.2, 6.0, 5.5, 5.1, 3.7, 2.6, 1.6, 0.7, 0.3, 0.1, 0.0, -0.4, -0.4, -0.2, -0.1, 0.2, 0.1, 0.2, 0.8, 1.3, 2.2, 2.7, 3.0, 3.3, 3.4, 3.4, 3.0, 2.4, 2.0, 1.4, 1.3, 1.7, 1.9, 2.2, 2.1, 1.9, 1.5, 1.3, 1.6, 1.9, 2.4, 2.8, 3.0, 3.0, 3.2, 3.4, 3.2, 3.1, 2.7, 2.3, 2.0, 2.0, 2.2], "hist_acum_ano": [3.1, 3.0, 2.9, 2.4, 1.4, 1.4, 1.5, 2.5, 2.9, 3.0, 2.8, 2.6, 3.8, 3.2, 2.8, 2.3, 0.6, 1.5, 2.7, 4.0, 4.7, 4.5, 3.9, 3.2, 3.0, 3.1, 3.4, 3.9, 6.8, 6.0, 4.9, 3.9, 0.7, 2.4, 4.4, 5.5, 6.6, 5.4, 4.4, 4.2, 3.3, 3.9, 4.5, 4.7, 7.1, 7.1, 6.6, 6.0, 2.8, 2.1, 1.9, 1.4, 1.7, 1.9, 2.1, 3.0, 4.8, 5.1, 5.1, 4.9, 3.7, 2.6, 2.1, 1.9, 2.7, 4.2, 4.9, 5.1, 7.2, 6.0, 5.4, 5.1, 1.6, 1.1, 0.8, 0.7, -0.1, -0.3, -0.3, -0.4, -0.1, 0.2, 0.1, 0.2, -0.4, 0.3, 1.0, 1.3, 2.9, 3.1, 3.2, 3.3, 3.3, 3.2, 2.9, 2.4, 1.5, 1.2, 1.4, 1.7, 2.0, 2.0, 1.9, 1.9, 0.6, 1.0, 1.5, 1.9, 2.8, 2.8, 3.1, 3.0, 3.8, 3.7, 3.4, 3.1, 1.9, 2.0, 2.0, 2.0, 2.9]}, {"nome": "Comércio", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [91.41, 100.51, 108.8, 106.53, 95.58, 105.95, 112.36, 109.05, 96.06, 106.5, 109.85, 102.63, 93.61, 102.18, 105.02, 105.02, 97.41, 103.59, 110.09, 112.98, 102.49, 108.66, 111.32, 109.41, 98.15, 105.31, 109.88, 108.34, 98.57, 103.51, 106.4, 111.55, 106.43, 113.24, 119.28, 120.02, 110.05, 118.78, 121.12, 123.31, 116.34, 121.3, 127.03, 132.14, 124.32, 132.95, 138.26, 142.32, 133.95, 142.83, 151.02, 138.71, 123.97, 134.78, 145.5, 149.03, 143.71, 151.03, 159.81, 160.41, 150.11, 157.35, 160.56, 161.33, 151.01, 158.91, 166.83, 167.5, 156.54, 165.35, 171.65, 172.77, 163.36, 162.8, 170.59, 173.26, 156.78, 153.69, 156.22, 154.37, 140.48, 142.73, 148.29, 148.43, 137.94, 144.55, 154.81, 156.03, 146.37, 148.25, 157.65, 156.69, 146.55, 150.29, 161.11, 160.97, 150.15, 131.35, 162.06, 166.36, 154.25, 154.36, 164.61, 164.1, 151.65, 158.1, 168.11, 165.18, 154.21, 159.46, 169.53, 164.98, 158.09, 165.67, 176.49, 172.3, 161.93, 167.38, 178.11, 172.63, 163.61], "hist_tri_anterior": [null, 1.4, 2.7, 1.4, 0.0, 0.9, 1.2, 0.2, -2.2, 1.4, -1.1, -4.2, 0.8, 0.5, -0.8, 1.4, 1.2, -0.1, 2.5, 3.3, 0.3, -0.9, -1.1, -1.4, -1.3, 0.8, 1.0, -1.4, -0.3, -0.8, -0.4, 4.5, 3.1, 1.9, 2.3, 0.1, 0.1, 2.1, -0.5, 0.7, 3.3, -1.1, 1.7, 3.1, 3.1, 1.6, 0.7, 2.4, 1.7, 2.6, 2.0, -8.3, -2.8, 3.9, 3.7, 2.8, 4.4, 0.6, 1.8, 0.8, 1.1, 0.3, -1.4, 0.4, 0.1, 1.9, 1.5, 0.3, 1.0, 1.4, 0.5, -0.1, 2.1, -3.5, 1.0, 0.5, -2.1, -4.6, -2.6, -2.1, -2.4, -0.1, -0.8, -0.5, 0.7, 2.4, 1.3, 0.8, 1.5, -0.9, 0.3, -0.2, 0.6, 1.0, 0.9, 0.1, -0.4, -13.2, 16.1, 3.0, 0.2, -2.1, 0.3, 0.6, -0.3, 1.3, 0.1, -0.2, 0.6, 0.0, 0.0, -0.1, 1.6, 2.0, 0.6, 0.6, 0.0, -0.2, 0.4, 0.1, 0.6], "hist_tri_ano_anterior": [-4.8, -0.3, 7.5, 4.4, 4.6, 5.4, 3.3, 2.4, 0.5, 0.5, -2.2, -5.9, -2.5, -4.1, -4.4, 2.3, 4.1, 1.4, 4.8, 7.6, 5.2, 4.9, 1.1, -3.2, -4.2, -3.1, -1.3, -1.0, 0.4, -1.7, -3.2, 3.0, 8.0, 9.4, 12.1, 7.6, 3.4, 4.9, 1.5, 2.7, 5.7, 2.1, 4.9, 7.2, 6.9, 9.6, 8.8, 7.7, 7.7, 7.4, 9.2, -2.5, -7.5, -5.6, -3.7, 7.4, 15.9, 12.1, 9.8, 7.6, 4.5, 4.2, 0.5, 0.6, 0.6, 1.0, 3.9, 3.8, 3.7, 4.1, 2.9, 3.1, 4.4, -1.5, -0.6, 0.3, -4.0, -5.6, -8.4, -10.9, -10.4, -7.1, -5.1, -3.9, -1.8, 1.3, 4.4, 5.1, 6.1, 2.6, 1.8, 0.4, 0.1, 1.4, 2.2, 2.7, 2.5, -12.6, 0.6, 3.4, 2.7, 17.5, 1.6, -1.4, -1.7, 2.4, 2.1, 0.7, 1.7, 0.9, 0.8, -0.1, 2.5, 3.9, 4.1, 4.4, 2.4, 1.0, 0.9, 0.2, 1.0], "hist_acum_4tri": [2.9, 0.4, 1.4, 1.8, 4.1, 5.5, 4.4, 3.9, 2.9, 1.7, 0.2, -1.9, -2.6, -3.7, -4.3, -2.2, -0.7, 0.7, 3.1, 4.5, 4.8, 5.6, 4.6, 1.8, -0.4, -2.3, -2.9, -2.4, -1.3, -0.9, -1.4, -0.4, 1.4, 4.1, 8.1, 9.3, 8.1, 7.0, 4.3, 3.1, 3.7, 3.0, 3.8, 5.0, 5.3, 7.1, 8.1, 8.3, 8.5, 7.9, 8.0, 5.3, 1.7, -1.6, -4.8, -2.3, 3.0, 7.4, 11.2, 11.1, 8.4, 6.5, 4.1, 2.3, 1.4, 0.7, 1.5, 2.4, 3.1, 3.9, 3.6, 3.4, 3.6, 2.2, 1.3, 0.6, -1.4, -2.4, -4.4, -7.3, -8.8, -9.2, -8.5, -6.6, -4.5, -2.5, 0.0, 2.3, 4.2, 4.5, 3.9, 2.6, 1.2, 0.9, 1.0, 1.6, 2.2, -1.2, -1.6, -1.5, -1.4, 5.5, 5.8, 4.5, 3.4, 0.2, 0.4, 0.9, 1.7, 1.3, 1.0, 0.8, 1.0, 1.7, 2.6, 3.8, 3.7, 3.0, 2.2, 1.1, 0.8], "hist_acum_ano": [-4.8, -2.5, 0.9, 1.8, 4.6, 5.0, 4.4, 3.9, 0.5, 0.5, -0.5, -1.9, -2.5, -3.3, -3.7, -2.2, 4.1, 2.7, 3.4, 4.5, 5.2, 5.1, 3.7, 1.8, -4.2, -3.6, -2.8, -2.4, 0.4, -0.7, -1.6, -0.4, 8.0, 8.7, 9.9, 9.3, 3.4, 4.2, 3.2, 3.1, 5.7, 3.9, 4.2, 5.0, 6.9, 8.3, 8.5, 8.3, 7.7, 7.6, 8.2, 5.3, -7.5, -6.5, -5.5, -2.3, 15.9, 13.9, 12.4, 11.1, 4.5, 4.3, 3.0, 2.3, 0.6, 0.8, 1.9, 2.4, 3.7, 3.9, 3.5, 3.4, 4.4, 1.3, 0.7, 0.6, -4.0, -4.8, -6.0, -7.3, -10.4, -8.8, -7.5, -6.6, -1.8, -0.3, 1.3, 2.3, 6.1, 4.3, 3.4, 2.6, 0.1, 0.8, 1.3, 1.6, 2.5, -5.2, -3.1, -1.5, 2.7, 9.6, 6.7, 4.5, -1.7, 0.4, 1.0, 0.9, 1.7, 1.3, 1.1, 0.8, 2.5, 3.2, 3.5, 3.8, 2.4, 1.7, 1.4, 1.1, 1.0]}, {"nome": "Construção", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [97.79, 101.01, 107.36, 102.7, 100.89, 107.9, 116.96, 114.19, 107.12, 113.1, 116.98, 109.77, 100.97, 105.62, 110.71, 107.83, 102.12, 106.82, 112.74, 109.41, 105.71, 106.58, 107.37, 104.34, 103.1, 109.58, 115.02, 116.63, 102.31, 96.09, 101.19, 105.02, 103.06, 108.81, 120.65, 115.55, 105.28, 109.7, 112.19, 111.49, 105.79, 105.91, 113.98, 114.14, 111.95, 118.88, 125.88, 123.56, 117.54, 123.41, 134.97, 127.92, 116.84, 129.38, 144.49, 148.5, 139.69, 152.67, 157.98, 159.52, 151.73, 163.86, 172.81, 171.75, 164.94, 166.88, 177.78, 171.56, 166.97, 180.12, 187.61, 177.09, 180.64, 174.96, 170.73, 170.22, 163.11, 156.18, 159.14, 155.4, 148.03, 143.32, 143.2, 136.0, 130.27, 126.96, 129.53, 131.04, 123.25, 123.16, 128.33, 127.57, 121.26, 126.46, 134.51, 129.69, 122.55, 114.5, 131.92, 132.28, 134.23, 136.39, 149.12, 144.74, 143.99, 148.57, 158.67, 151.92, 146.39, 149.74, 151.61, 153.53, 149.34, 156.31, 160.68, 161.1, 153.88, 156.68, 163.91, 156.38, 155.82], "hist_tri_anterior": [null, -1.0, 0.8, -0.1, 3.5, 2.5, 2.9, 1.8, -1.3, 1.2, -1.5, -2.4, -3.3, 0.5, 0.1, 0.8, -0.6, 1.1, 1.0, -0.3, 1.4, -1.8, -3.9, -0.6, 3.9, 4.2, -0.3, 3.2, -7.5, -7.5, -0.5, 5.5, 3.9, 4.0, 4.5, -2.7, -3.2, 2.4, -3.9, 1.3, 1.1, -2.3, 1.3, 2.3, 4.9, 2.8, 0.0, 0.4, 2.2, 0.6, 4.0, -3.2, -1.7, 5.6, 6.5, 5.0, 1.1, 4.0, -0.8, 3.3, 1.5, 3.1, 1.6, 1.6, 1.4, -2.6, 3.0, -1.6, 1.4, 5.3, 0.9, -3.9, 5.2, -4.4, -5.5, 1.1, -1.6, -4.8, -1.3, -1.5, -2.1, -3.3, -3.5, -4.4, -1.2, -2.5, -2.0, 1.9, -2.6, -0.1, -0.5, 0.7, -1.4, 4.2, 1.0, -1.8, -2.0, -6.9, 9.2, 2.7, 5.1, 0.9, 3.9, -0.4, 2.9, 2.0, 1.9, -1.8, -0.4, 0.7, -2.9, 3.8, 0.5, 2.8, -1.0, 2.7, -1.3, -0.1, 0.9, -2.4, 2.9], "hist_tri_ano_anterior": [-6.7, 0.1, 9.7, 6.5, 3.2, 6.8, 8.9, 11.2, 6.2, 4.8, 0.0, -3.9, -5.7, -6.6, -5.4, -1.8, 1.1, 1.1, 1.8, 1.5, 3.5, -0.2, -4.8, -4.6, -2.5, 2.8, 7.1, 11.8, -0.8, -12.3, -12.0, -10.0, 0.7, 13.2, 19.2, 10.0, 2.2, 0.8, -7.0, -3.5, 0.5, -3.5, 1.6, 2.4, 5.8, 12.2, 10.4, 8.3, 5.0, 3.8, 7.2, 3.5, -0.6, 4.8, 7.1, 16.1, 19.6, 18.0, 9.3, 7.4, 8.6, 7.3, 9.4, 7.7, 8.7, 1.8, 2.9, -0.1, 1.2, 7.9, 5.5, 3.2, 8.2, -2.9, -9.0, -3.9, -9.7, -10.7, -6.8, -8.7, -9.2, -8.2, -10.0, -12.5, -12.0, -11.4, -9.5, -3.7, -5.4, -3.0, -0.9, -2.6, -1.6, 2.7, 4.8, 1.7, 1.1, -9.5, -1.9, 2.0, 9.5, 19.1, 13.0, 9.4, 7.3, 8.9, 6.4, 5.0, 1.7, 0.8, -4.5, 1.1, 2.0, 4.4, 6.0, 4.9, 3.0, 0.2, 2.0, -2.9, 1.3], "hist_acum_4tri": [-6.2, -4.4, -0.5, 2.2, 4.8, 6.5, 6.4, 7.6, 8.3, 7.8, 5.4, 1.6, -1.2, -4.0, -5.4, -4.9, -3.3, -1.4, 0.6, 1.4, 2.0, 1.6, -0.1, -1.6, -3.1, -2.3, 0.7, 4.8, 5.3, 1.3, -3.7, -8.9, -8.6, -2.8, 5.1, 10.7, 11.1, 7.9, 1.2, -2.1, -2.5, -3.5, -1.3, 0.3, 1.5, 5.4, 7.7, 9.2, 8.9, 6.8, 6.1, 4.9, 3.6, 3.8, 3.8, 7.0, 11.7, 15.0, 15.5, 13.1, 10.6, 8.2, 8.2, 8.2, 8.3, 6.8, 5.2, 3.2, 1.5, 3.0, 3.7, 4.5, 6.2, 3.4, -0.4, -2.1, -6.4, -8.3, -7.8, -9.0, -8.9, -8.2, -9.1, -10.0, -10.7, -11.5, -11.4, -9.2, -7.6, -5.5, -3.2, -3.0, -2.0, -0.7, 0.8, 1.9, 2.6, -0.5, -2.2, -2.1, -0.1, 6.7, 10.7, 12.6, 12.0, 9.6, 8.0, 6.8, 5.5, 3.5, 0.6, -0.3, -0.2, 0.7, 3.4, 4.4, 4.6, 3.5, 2.5, 0.5, 0.1], "hist_acum_ano": [-6.7, -3.3, 0.9, 2.2, 3.2, 5.0, 6.4, 7.6, 6.2, 5.5, 3.5, 1.6, -5.7, -6.2, -5.9, -4.9, 1.1, 1.1, 1.4, 1.4, 3.5, 1.6, -0.6, -1.6, -2.5, 0.2, 2.5, 4.8, -0.8, -6.7, -8.6, -8.9, 0.7, 6.8, 11.0, 10.7, 2.2, 1.5, -1.6, -2.1, 0.5, -1.5, -0.5, 0.3, 5.8, 9.0, 9.5, 9.2, 5.0, 4.4, 5.4, 4.9, -0.6, 2.2, 3.9, 7.0, 19.6, 18.7, 15.3, 13.1, 8.6, 7.9, 8.5, 8.2, 8.7, 5.1, 4.3, 3.2, 1.2, 4.6, 4.9, 4.5, 8.2, 2.5, -1.6, -2.1, -9.7, -10.2, -9.1, -9.0, -9.2, -8.8, -9.2, -10.0, -12.0, -11.7, -11.0, -9.2, -5.4, -4.2, -3.1, -3.0, -1.6, 0.5, 2.0, 1.9, 1.1, -4.3, -3.5, -2.1, 9.5, 14.2, 13.8, 12.6, 7.3, 8.1, 7.5, 6.8, 1.7, 1.2, -0.8, -0.3, 2.0, 3.2, 4.2, 4.4, 3.0, 1.6, 1.7, 0.5, 1.3]}, {"nome": "Despesa de consumo da administração pública", "grupo": "DEMANDA", "nivel": "TOTAL", "hist_indice": [96.12, 100.07, 105.0, 91.51, 97.3, 99.28, 99.0, 102.02, 98.49, 101.52, 104.32, 106.07, 99.19, 102.52, 105.45, 110.16, 102.71, 103.87, 103.0, 107.11, 103.83, 106.2, 106.6, 110.97, 108.26, 110.58, 111.06, 114.02, 107.45, 110.86, 113.29, 119.41, 111.37, 118.02, 118.18, 120.91, 115.5, 118.72, 120.21, 123.48, 118.92, 121.55, 123.29, 131.16, 124.08, 129.57, 129.3, 132.1, 127.77, 130.17, 134.39, 133.26, 131.84, 132.98, 134.8, 141.45, 135.75, 139.82, 141.32, 145.4, 139.26, 144.42, 143.82, 147.19, 142.16, 147.48, 146.61, 151.52, 141.99, 149.21, 150.24, 155.21, 144.88, 151.05, 151.8, 153.76, 144.33, 148.59, 149.1, 150.84, 144.13, 149.39, 149.04, 151.55, 141.85, 148.0, 147.89, 152.38, 143.28, 149.85, 150.23, 151.4, 142.72, 149.14, 148.47, 151.54, 142.55, 137.41, 141.9, 148.18, 139.57, 148.58, 150.53, 155.14, 145.18, 151.3, 154.52, 155.54, 147.36, 158.62, 159.96, 163.47, 152.62, 162.02, 163.74, 163.62, 155.7, 163.5, 166.75, 169.56, 160.01], "hist_tri_anterior": [null, 1.6, 3.5, -15.1, 13.3, -0.4, -1.6, 0.7, 2.4, 0.7, 1.7, -0.7, -1.1, 1.1, 2.1, 1.9, -1.7, -0.9, -1.4, 1.1, 2.2, 0.3, 0.0, 1.2, 2.6, 0.1, 0.2, -0.1, -0.9, 1.1, 2.0, 2.6, -1.9, 3.7, -0.1, -0.4, 0.5, 0.6, 1.0, 0.0, 1.3, 0.0, 1.2, 3.7, -0.7, 2.4, -0.5, -0.5, 1.6, -0.1, 2.9, -3.4, 3.9, -1.2, 1.1, 2.4, 0.8, 0.6, 1.0, 0.4, 0.8, 1.0, -0.4, -0.2, 2.0, 0.6, -0.5, 0.9, -0.9, 1.6, 0.7, 1.1, -1.2, 0.6, 0.4, -0.8, -0.5, -0.8, 0.2, -0.9, 1.5, -0.3, -0.4, -0.2, -0.6, 0.2, -0.1, 1.1, -0.1, 0.2, 0.4, -1.3, 0.4, -0.1, -0.3, 0.0, 0.4, -8.1, 3.4, 2.3, 0.9, 1.3, 1.3, 1.3, 0.1, -0.9, 2.0, -0.9, 1.4, 2.4, 0.4, 1.1, -0.4, 1.1, 0.5, -1.0, 1.5, 0.0, 1.3, 0.9, 0.4], "hist_tri_ano_anterior": [-3.3, -0.2, 2.8, -6.8, 1.2, -0.8, -5.7, 11.5, 1.2, 2.3, 5.4, 4.0, 0.7, 1.0, 1.1, 3.9, 3.6, 1.3, -2.3, -2.8, 1.1, 2.2, 3.5, 3.6, 4.3, 4.1, 4.2, 2.8, -0.8, 0.3, 2.0, 4.7, 3.6, 6.5, 4.3, 1.3, 3.7, 0.6, 1.7, 2.1, 3.0, 2.4, 2.6, 6.2, 4.3, 6.6, 4.9, 0.7, 3.0, 0.5, 3.9, 0.9, 3.2, 2.2, 0.3, 6.1, 3.0, 5.1, 4.8, 2.8, 2.6, 3.3, 1.8, 1.2, 2.1, 2.1, 1.9, 2.9, -0.1, 1.2, 2.5, 2.4, 2.0, 1.2, 1.0, -0.9, -0.4, -1.6, -1.8, -1.9, -0.1, 0.5, 0.0, 0.5, -1.6, -0.9, -0.8, 0.5, 1.0, 1.2, 1.6, -0.6, -0.4, -0.5, -1.2, 0.1, -0.1, -7.9, -4.4, -2.2, -2.1, 8.1, 6.1, 4.7, 4.0, 1.8, 2.6, 0.3, 1.5, 4.8, 3.5, 5.1, 3.6, 2.1, 2.4, 0.1, 2.0, 0.9, 1.8, 3.6, 2.8], "hist_acum_4tri": [-0.2, -0.7, -0.8, -1.8, -0.7, -0.9, -3.1, 1.2, 1.2, 2.0, 5.0, 3.2, 3.1, 2.8, 1.7, 1.7, 2.4, 2.5, 1.6, -0.2, -0.7, -0.5, 1.0, 2.6, 3.4, 3.9, 4.0, 3.8, 2.6, 1.6, 1.1, 1.6, 2.7, 4.2, 4.8, 3.9, 3.9, 2.4, 1.8, 2.0, 1.8, 2.3, 2.5, 3.6, 3.9, 4.9, 5.5, 4.1, 3.7, 2.2, 2.0, 2.0, 2.1, 2.5, 1.6, 2.9, 2.9, 3.6, 4.8, 3.9, 3.8, 3.4, 2.6, 2.2, 2.1, 1.8, 1.8, 2.3, 1.7, 1.5, 1.6, 1.5, 2.0, 2.0, 1.7, 0.8, 0.2, -0.5, -1.2, -1.4, -1.4, -0.8, -0.4, 0.2, -0.1, -0.5, -0.7, -0.7, 0.0, 0.5, 1.1, 0.8, 0.4, 0.0, -0.7, -0.5, -0.4, -2.3, -3.1, -3.7, -4.2, -0.3, 2.3, 4.2, 5.7, 4.1, 3.3, 2.1, 1.5, 2.3, 2.5, 3.8, 4.3, 3.6, 3.3, 2.0, 1.6, 1.3, 1.2, 2.1, 2.3], "hist_acum_ano": [-3.3, -1.7, -0.2, -1.8, 1.2, 0.2, -1.9, 1.2, 1.2, 1.7, 3.0, 3.2, 0.7, 0.9, 0.9, 1.7, 3.6, 2.4, 0.8, -0.2, 1.1, 1.7, 2.3, 2.6, 4.3, 4.2, 4.2, 3.8, -0.8, -0.2, 0.5, 1.6, 3.6, 5.1, 4.8, 3.9, 3.7, 2.1, 2.0, 2.0, 3.0, 2.7, 2.6, 3.6, 4.3, 5.5, 5.3, 4.1, 3.0, 1.7, 2.4, 2.0, 3.2, 2.7, 1.9, 2.9, 3.0, 4.1, 4.3, 3.9, 2.6, 2.9, 2.5, 2.2, 2.1, 2.1, 2.0, 2.3, -0.1, 0.5, 1.2, 1.5, 2.0, 1.6, 1.4, 0.8, -0.4, -1.0, -1.3, -1.4, -0.1, 0.2, 0.1, 0.2, -1.6, -1.2, -1.1, -0.7, 1.0, 1.1, 1.3, 0.8, -0.4, -0.4, -0.7, -0.5, -0.1, -4.1, -4.2, -3.7, -2.1, 2.9, 4.0, 4.2, 4.0, 2.9, 2.8, 2.1, 1.5, 3.2, 3.3, 3.8, 3.6, 2.8, 2.7, 2.0, 2.0, 1.4, 1.6, 2.1, 2.8]}, {"nome": "Despesa de consumo das famílias", "grupo": "DEMANDA", "nivel": "TOTAL", "hist_indice": [96.06, 99.75, 104.74, 112.39, 103.65, 105.73, 106.9, 109.2, 103.13, 104.59, 106.93, 107.76, 102.16, 103.95, 106.8, 111.09, 105.24, 108.36, 111.88, 115.63, 109.48, 111.71, 109.83, 113.49, 109.74, 112.49, 112.81, 115.33, 109.72, 110.19, 111.99, 116.01, 110.71, 113.62, 117.46, 123.69, 116.6, 119.06, 122.61, 127.8, 122.35, 125.96, 129.1, 134.35, 130.12, 133.74, 136.57, 143.95, 139.44, 143.15, 147.99, 149.0, 142.61, 148.83, 154.6, 159.36, 153.25, 156.86, 162.77, 170.24, 163.07, 167.26, 169.21, 174.56, 167.93, 170.97, 175.85, 182.94, 174.38, 178.01, 181.96, 187.56, 180.61, 180.74, 183.97, 192.84, 179.47, 176.8, 176.77, 181.37, 169.39, 168.88, 171.7, 177.02, 168.47, 171.49, 177.05, 183.58, 174.67, 175.19, 180.5, 186.8, 178.63, 179.46, 185.2, 192.49, 179.32, 159.39, 175.67, 187.82, 176.64, 174.79, 182.35, 189.17, 179.69, 184.36, 191.02, 197.86, 186.93, 190.06, 197.26, 203.08, 196.65, 200.34, 208.76, 211.23, 201.02, 203.94, 209.51, 213.24, 204.54], "hist_tri_anterior": [null, 2.1, 2.8, 5.2, -2.3, 0.3, -1.0, 0.1, 0.0, -0.3, 0.3, -1.3, 0.3, 0.0, 1.0, 1.7, 0.0, 1.3, 1.7, 0.9, -0.2, 0.6, -3.0, 0.8, 1.9, 1.1, -1.0, -0.4, 0.2, -0.8, 0.3, 0.9, 0.5, 1.4, 2.0, 2.5, -0.6, 0.8, 1.6, 1.4, 1.0, 1.6, 1.1, 1.4, 2.2, 1.3, 0.6, 2.9, 2.2, 1.1, 1.9, -1.6, 0.9, 2.9, 2.3, 0.7, 1.4, 1.0, 2.2, 2.1, 0.9, 1.3, -0.4, 0.5, 1.4, 0.8, 1.3, 1.1, 0.5, 1.3, 0.6, -0.1, 1.6, -0.5, 0.1, 1.5, -1.7, -1.9, -1.8, -0.7, -1.3, -0.6, -0.4, -0.2, 0.6, 1.6, 1.0, 0.3, 0.8, 0.2, 0.6, 0.1, 1.4, 0.4, 0.6, 0.6, -1.0, -11.3, 7.3, 3.6, 0.0, -1.4, 1.5, 0.8, 1.0, 2.0, 0.8, 1.0, 0.2, 0.9, 1.0, 0.8, 2.4, 1.0, 1.4, -0.5, 0.3, 0.5, 0.0, 0.2, 1.0], "hist_tri_ano_anterior": [-1.2, 1.8, 5.4, 6.7, 7.9, 6.0, 2.1, -2.8, -0.5, -1.1, 0.0, -1.3, -0.9, -0.6, -0.1, 3.1, 3.0, 4.2, 4.7, 4.1, 4.0, 3.1, -1.8, -1.9, 0.2, 0.7, 2.7, 1.6, 0.0, -2.0, -0.7, 0.6, 0.9, 3.1, 4.9, 6.6, 5.3, 4.8, 4.4, 3.3, 4.9, 5.8, 5.3, 5.1, 6.4, 6.2, 5.8, 7.1, 7.2, 7.0, 8.4, 3.5, 2.3, 4.0, 4.5, 7.0, 7.5, 5.4, 5.3, 6.8, 6.4, 6.6, 4.0, 2.5, 3.0, 2.2, 3.9, 4.8, 3.8, 4.1, 3.5, 2.5, 3.6, 1.5, 1.1, 2.8, -0.6, -2.2, -3.9, -5.9, -5.6, -4.5, -2.9, -2.4, -0.5, 1.5, 3.1, 3.7, 3.7, 2.2, 1.9, 1.8, 2.3, 2.4, 2.6, 3.0, 0.4, -11.2, -5.1, -2.4, -1.5, 9.7, 3.8, 0.7, 1.7, 5.5, 4.8, 4.6, 4.0, 3.1, 3.3, 2.6, 5.2, 5.4, 5.8, 4.0, 2.2, 1.8, 0.4, 1.0, 1.7], "hist_acum_4tri": [2.5, 2.6, 3.3, 3.2, 5.5, 6.5, 5.6, 3.0, 1.1, -0.6, -1.1, -0.7, -0.8, -0.7, -0.7, 0.4, 1.3, 2.5, 3.8, 4.0, 4.3, 4.0, 2.3, 0.8, -0.1, -0.7, 0.4, 1.3, 1.3, 0.6, -0.3, -0.5, -0.3, 1.0, 2.4, 3.9, 5.0, 5.4, 5.3, 4.4, 4.3, 4.6, 4.8, 5.3, 5.6, 5.7, 5.9, 6.4, 6.6, 6.8, 7.4, 6.5, 5.2, 4.5, 3.6, 4.5, 5.7, 6.1, 6.3, 6.2, 6.0, 6.3, 5.9, 4.8, 4.0, 2.9, 2.9, 3.5, 3.7, 4.2, 4.1, 3.5, 3.4, 2.8, 2.2, 2.3, 1.2, 0.3, -1.0, -3.2, -4.4, -5.0, -4.8, -3.8, -2.6, -1.1, 0.4, 2.0, 3.0, 3.2, 2.9, 2.4, 2.0, 2.1, 2.3, 2.6, 2.1, -1.2, -3.2, -4.6, -5.0, -0.2, 2.1, 3.0, 3.8, 2.9, 3.1, 4.1, 4.7, 4.1, 3.7, 3.2, 3.5, 4.1, 4.8, 5.1, 4.4, 3.5, 2.1, 1.3, 1.2], "hist_acum_ano": [-1.2, 0.3, 2.0, 3.2, 7.9, 6.9, 5.2, 3.0, -0.5, -0.8, -0.5, -0.7, -0.9, -0.8, -0.5, 0.4, 3.0, 3.6, 4.0, 4.0, 4.0, 3.6, 1.7, 0.8, 0.2, 0.5, 1.2, 1.3, 0.0, -1.0, -0.9, -0.5, 0.9, 2.0, 3.0, 3.9, 5.3, 5.1, 4.8, 4.4, 4.9, 5.4, 5.3, 5.3, 6.4, 6.3, 6.1, 6.4, 7.2, 7.1, 7.5, 6.5, 2.3, 3.1, 3.6, 4.5, 7.5, 6.4, 6.0, 6.2, 6.4, 6.5, 5.6, 4.8, 3.0, 2.6, 3.0, 3.5, 3.8, 4.0, 3.8, 3.5, 3.6, 2.5, 2.1, 2.3, -0.6, -1.4, -2.3, -3.2, -5.6, -5.1, -4.3, -3.8, -0.5, 0.5, 1.4, 2.0, 3.7, 2.9, 2.6, 2.4, 2.3, 2.4, 2.4, 2.6, 0.4, -5.4, -5.3, -4.6, -1.5, 3.8, 3.8, 3.0, 1.7, 3.6, 4.0, 4.1, 4.0, 3.6, 3.5, 3.2, 5.2, 5.3, 5.5, 5.1, 2.2, 2.0, 1.4, 1.3, 1.7]}, {"nome": "Eletricidade e gás, água, esgoto, atividades de gestão de resíduos", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [102.7, 101.0, 102.19, 106.58, 108.54, 106.34, 109.12, 112.83, 112.67, 108.88, 109.69, 111.0, 110.44, 110.27, 110.84, 113.11, 116.85, 114.1, 113.96, 118.23, 117.95, 111.78, 98.21, 99.67, 106.33, 112.23, 111.55, 115.73, 116.85, 112.34, 115.13, 118.1, 117.13, 122.86, 123.38, 126.8, 124.8, 125.8, 126.02, 128.96, 128.12, 129.17, 133.42, 135.79, 135.95, 139.89, 139.84, 143.07, 140.07, 141.16, 144.9, 147.04, 136.77, 143.0, 145.52, 152.13, 148.34, 153.46, 154.37, 157.5, 155.09, 162.73, 163.69, 166.55, 165.53, 161.25, 167.26, 158.44, 160.63, 164.72, 167.02, 170.57, 169.06, 158.96, 157.11, 164.92, 160.57, 157.7, 161.49, 167.74, 170.72, 174.03, 170.76, 173.89, 177.87, 172.83, 170.72, 174.36, 181.03, 179.88, 174.78, 185.58, 190.59, 185.27, 179.4, 184.6, 182.4, 184.1, 186.4, 179.49, 188.16, 188.97, 182.67, 183.91, 201.89, 209.36, 203.19, 207.49, 213.52, 213.34, 213.61, 229.04, 223.76, 227.74, 212.2, 214.5, 227.33, 220.71, 210.12, 216.66, 223.36], "hist_tri_anterior": [null, 0.6, 0.9, 2.2, 2.4, -0.9, 2.9, 1.3, -0.5, -0.3, 0.0, -0.8, 0.0, 1.2, 0.6, 0.0, 2.9, 0.9, -1.2, 1.8, -0.3, -2.7, -12.9, -0.4, 8.4, 5.4, -0.3, 1.9, 1.7, -1.9, 1.4, 0.8, 0.6, 5.7, -0.3, 1.2, 1.0, -0.6, 0.4, 0.9, 0.7, 2.1, 1.9, 0.3, 2.6, 2.5, -0.8, 0.8, 1.3, -0.9, 2.5, -0.2, -4.6, 5.0, 0.4, 2.7, 0.8, 2.6, -0.1, 0.1, 0.5, 6.8, -1.2, -0.2, 1.7, -1.8, 2.8, -7.1, 3.7, 2.6, 1.4, 0.0, -0.7, -3.1, -2.1, 2.9, -2.2, -0.6, 3.2, 1.7, 1.9, 2.5, -0.1, -0.4, 0.6, 0.1, 0.0, -0.3, 3.3, -0.7, 0.2, 3.8, 0.8, -0.8, -1.0, 0.7, -2.7, 1.7, 4.2, -5.3, 3.8, -0.9, 0.6, -0.6, 6.9, 4.4, 0.3, 1.2, 0.2, -0.6, 4.6, 6.2, -4.8, 0.4, -1.9, -0.2, 1.6, -1.1, -1.0, 1.5, -0.3], "hist_tri_ano_anterior": [2.4, 2.9, 3.0, 4.1, 5.7, 5.3, 6.8, 5.9, 3.8, 2.4, 0.5, -1.6, -2.0, 1.3, 1.0, 1.9, 5.8, 3.5, 2.8, 4.5, 0.9, -2.0, -13.8, -15.7, -9.8, 0.4, 13.6, 16.1, 9.9, 0.1, 3.2, 2.0, 0.2, 9.4, 7.2, 7.4, 6.6, 2.4, 2.1, 1.7, 2.7, 2.7, 5.9, 5.3, 6.1, 8.3, 4.8, 5.4, 3.0, 0.9, 3.6, 2.8, -2.4, 1.3, 0.4, 3.5, 8.5, 7.3, 6.1, 3.5, 4.6, 6.0, 6.0, 5.7, 6.7, -0.9, 2.2, -4.9, -3.0, 2.2, -0.1, 7.7, 5.3, -3.5, -5.9, -3.3, -5.0, -0.8, 2.8, 1.7, 6.3, 10.4, 5.7, 3.7, 4.2, -0.7, 0.0, 0.3, 1.8, 4.1, 2.4, 6.4, 5.3, 3.0, 2.6, -0.5, -4.3, -0.6, 3.9, -2.8, 3.2, 2.6, -2.0, 2.5, 7.3, 10.8, 11.2, 12.8, 5.8, 1.9, 5.1, 10.4, 4.8, 6.8, -0.7, -6.3, 1.6, -3.1, -1.0, 1.0, -1.7], "hist_acum_4tri": [0.4, 2.1, 2.9, 3.1, 3.9, 4.5, 5.5, 5.9, 5.4, 4.7, 3.1, 1.2, -0.2, -0.5, -0.3, 0.5, 2.5, 3.1, 3.5, 4.2, 2.9, 1.5, -2.6, -7.7, -10.4, -9.8, -3.7, 4.3, 9.7, 9.6, 7.0, 3.7, 1.4, 3.7, 4.7, 6.0, 7.6, 5.8, 4.6, 3.1, 2.2, 2.3, 3.2, 4.1, 5.0, 6.4, 6.1, 6.1, 5.3, 3.5, 3.2, 2.6, 1.2, 1.3, 0.6, 0.7, 3.4, 4.9, 6.3, 6.3, 5.3, 5.0, 5.1, 5.6, 6.1, 4.3, 3.4, 0.7, -1.7, -0.9, -1.5, 1.6, 3.7, 2.2, 0.8, -1.9, -4.4, -3.8, -1.7, -0.4, 2.5, 5.3, 6.0, 6.5, 5.9, 3.2, 1.8, 0.9, 0.3, 1.5, 2.1, 3.7, 4.6, 4.3, 4.3, 2.6, 0.1, -0.8, -0.5, -1.0, 0.9, 1.7, 0.2, 1.5, 2.6, 4.7, 8.0, 10.5, 10.0, 7.7, 6.2, 5.8, 5.5, 6.8, 5.3, 1.0, 0.2, -2.2, -2.2, -0.4, -1.2], "hist_acum_ano": [2.4, 2.7, 2.8, 3.1, 5.7, 5.5, 5.9, 5.9, 3.8, 3.1, 2.2, 1.2, -2.0, -0.4, 0.1, 0.5, 5.8, 4.6, 4.0, 4.2, 0.9, -0.5, -4.9, -7.7, -9.8, -4.9, 0.7, 4.3, 9.9, 4.9, 4.3, 3.7, 0.2, 4.7, 5.5, 6.0, 6.6, 4.4, 3.6, 3.1, 2.7, 2.7, 3.7, 4.1, 6.1, 7.2, 6.4, 6.1, 3.0, 2.0, 2.5, 2.6, -2.4, -0.5, -0.2, 0.7, 8.5, 7.9, 7.3, 6.3, 4.6, 5.3, 5.6, 5.6, 6.7, 2.8, 2.6, 0.7, -3.0, -0.4, -0.3, 1.6, 5.3, 0.8, -1.5, -1.9, -5.0, -3.0, -1.1, -0.4, 6.3, 8.3, 7.5, 6.5, 4.2, 1.7, 1.1, 0.9, 1.8, 2.9, 2.7, 3.7, 5.3, 4.1, 3.7, 2.6, -4.3, -2.5, -0.4, -1.0, 3.2, 2.9, 1.2, 1.5, 7.3, 9.0, 9.8, 10.5, 5.8, 3.8, 4.2, 5.8, 4.8, 5.8, 3.6, 1.0, 1.6, -0.8, -0.8, -0.4, -1.7]}, {"nome": "Exportação de bens e serviços", "grupo": "DEMANDA", "nivel": "TOTAL", "hist_indice": [95.16, 104.64, 106.67, 91.85, 94.7, 119.64, 125.34, 102.54, 104.57, 125.39, 125.17, 108.79, 104.47, 124.12, 129.29, 132.51, 126.08, 138.0, 153.32, 136.06, 140.18, 157.08, 157.94, 149.34, 133.77, 139.69, 189.75, 180.49, 153.39, 177.97, 192.73, 190.52, 181.37, 201.17, 219.15, 216.35, 199.3, 223.56, 243.05, 231.03, 216.22, 219.7, 261.66, 242.74, 228.19, 247.91, 264.74, 257.56, 224.18, 262.52, 273.57, 242.21, 192.54, 236.46, 247.75, 233.03, 222.35, 253.17, 276.31, 264.6, 231.77, 269.62, 288.6, 275.34, 244.15, 266.65, 278.3, 283.78, 232.04, 282.31, 285.22, 292.94, 237.63, 279.59, 296.86, 261.28, 247.45, 304.21, 303.2, 293.84, 277.48, 312.19, 300.14, 268.8, 281.74, 318.64, 322.41, 292.71, 295.95, 310.77, 330.38, 327.64, 289.61, 312.52, 318.77, 311.45, 281.67, 313.4, 313.81, 295.24, 280.58, 352.36, 321.56, 302.38, 304.87, 337.97, 347.67, 338.56, 326.53, 376.77, 381.12, 363.24, 345.64, 392.68, 388.79, 360.54, 349.82, 400.89, 416.8, 411.85, 375.72], "hist_tri_anterior": [null, -2.8, -0.5, 3.1, 6.4, 6.4, 2.0, -4.6, 6.0, 2.7, -4.3, 0.4, 1.9, 2.2, -1.4, 15.9, -2.2, 1.0, 8.7, -2.7, 5.7, 3.1, -3.0, -1.3, 1.5, -8.0, 27.7, 0.5, -3.5, 3.5, 0.9, 4.1, 4.4, 3.3, 1.8, 3.3, 4.5, 1.1, 1.7, 1.7, 2.0, -7.2, 14.0, -2.5, 2.7, -1.6, 2.1, 1.0, -2.8, 5.3, -2.1, -6.3, -6.7, 4.7, -2.0, 0.1, 11.0, -1.9, 3.6, 0.5, 1.9, 0.3, 2.2, 1.4, -1.4, -3.8, 2.3, 4.6, -4.8, 3.2, -1.8, 8.0, -6.9, -0.8, 4.9, -6.9, 6.2, 4.9, -1.5, 3.5, 0.5, 0.2, -5.0, -2.2, 8.8, 1.3, 1.6, -3.2, 4.8, -5.3, 6.9, 3.3, -4.6, -4.5, 0.7, 3.4, -3.6, -0.3, -0.9, -0.5, 4.1, 9.5, -9.6, -0.5, 9.7, -3.5, 2.8, 4.5, 1.5, 2.6, 2.5, 0.5, -0.4, 1.8, -1.3, -2.3, 4.9, 1.0, 3.8, 3.7, -1.7], "hist_tri_ano_anterior": [4.7, 4.5, -3.6, -6.6, -0.5, 14.3, 17.5, 11.6, 10.4, 4.8, -0.1, 6.1, -0.1, -1.0, 3.3, 21.8, 20.7, 11.2, 18.6, 2.7, 11.2, 13.8, 3.0, 9.8, -4.6, -11.1, 20.1, 20.9, 14.7, 27.4, 1.6, 5.6, 18.2, 13.0, 13.7, 13.6, 9.9, 11.1, 10.9, 6.8, 8.5, -1.7, 7.7, 5.1, 5.5, 12.8, 1.2, 6.1, -1.8, 5.9, 3.3, -6.0, -14.1, -9.9, -9.4, -3.8, 15.5, 7.1, 11.5, 13.5, 4.2, 6.5, 4.4, 4.1, 5.3, -1.1, -3.6, 3.1, -5.0, 5.9, 2.5, 3.2, 2.4, -1.0, 4.1, -10.8, 4.1, 8.8, 2.1, 12.5, 12.1, 2.6, -1.0, -8.5, 1.5, 2.1, 7.4, 8.9, 5.0, -2.5, 2.5, 11.9, -2.1, 0.6, -3.5, -4.9, -2.7, 0.3, -1.6, -5.2, -0.4, 12.4, 2.5, 2.4, 8.7, -4.1, 8.1, 12.0, 7.1, 11.5, 9.6, 7.3, 5.9, 4.2, 2.0, -0.7, 1.2, 2.1, 7.2, 14.2, 7.4], "hist_acum_4tri": [11.2, 7.0, 0.6, -0.4, -1.6, 1.0, 6.6, 11.0, 13.6, 10.9, 6.1, 4.9, 2.6, 1.0, 2.0, 5.7, 10.4, 13.7, 17.8, 12.9, 10.9, 11.6, 7.5, 9.2, 5.4, -1.0, 3.6, 6.5, 10.9, 20.8, 15.0, 11.0, 12.0, 9.1, 12.4, 14.5, 12.6, 12.1, 11.4, 9.6, 9.3, 6.0, 5.3, 4.8, 4.2, 7.7, 5.9, 6.2, 4.4, 2.9, 3.5, 0.4, -2.4, -6.4, -9.7, -9.2, -3.2, 1.2, 7.2, 11.7, 9.2, 9.0, 7.1, 4.8, 5.1, 3.1, 0.9, 0.7, -1.6, 0.2, 1.8, 1.8, 3.5, 1.8, 2.2, -1.6, -1.2, 1.3, 0.8, 6.8, 8.6, 6.9, 6.0, 0.9, -1.3, -1.5, 0.7, 4.9, 5.7, 4.5, 3.2, 4.1, 2.3, 3.1, 1.5, -2.6, -2.7, -2.8, -2.3, -2.3, -1.7, 1.4, 2.4, 4.4, 6.5, 2.0, 3.5, 5.7, 5.4, 9.7, 10.1, 8.9, 8.6, 6.7, 4.7, 2.8, 1.7, 1.2, 2.5, 6.2, 7.6], "hist_acum_ano": [4.7, 4.6, 1.6, -0.4, -0.5, 7.3, 10.8, 11.0, 10.4, 7.3, 4.5, 4.9, -0.1, -0.6, 0.8, 5.7, 20.7, 15.5, 16.6, 12.9, 11.2, 12.6, 9.1, 9.2, -4.6, -8.0, 1.8, 6.5, 14.7, 21.2, 13.1, 11.0, 18.2, 15.4, 14.8, 14.5, 9.9, 10.5, 10.7, 9.6, 8.5, 3.1, 4.8, 4.8, 5.5, 9.2, 6.2, 6.2, -1.8, 2.2, 2.6, 0.4, -14.1, -11.9, -11.0, -9.2, 15.5, 10.8, 11.1, 11.7, 4.2, 5.4, 5.1, 4.8, 5.3, 1.9, -0.1, 0.7, -5.0, 0.7, 1.3, 1.8, 2.4, 0.6, 1.8, -1.6, 4.1, 6.7, 5.0, 6.8, 12.1, 6.9, 4.1, 0.9, 1.5, 1.8, 3.7, 4.9, 5.0, 1.1, 1.6, 4.1, -2.1, -0.8, -1.7, -2.6, -2.7, -1.2, -1.3, -2.3, -0.4, 6.4, 5.0, 4.4, 8.7, 1.6, 3.8, 5.7, 7.1, 9.4, 9.5, 8.9, 5.9, 5.0, 3.9, 2.8, 1.2, 1.7, 3.6, 6.2, 7.4]}, {"nome": "Formação bruta de capital fixo", "grupo": "DEMANDA", "nivel": "TOTAL", "hist_indice": [92.91, 101.18, 105.26, 105.43, 103.37, 112.01, 114.22, 109.26, 106.98, 114.41, 112.84, 103.91, 98.0, 102.51, 100.03, 98.71, 97.7, 106.51, 106.83, 107.43, 107.7, 108.68, 108.1, 99.44, 99.17, 104.04, 107.62, 106.99, 102.26, 96.93, 100.21, 101.76, 103.19, 108.51, 114.41, 109.09, 104.6, 111.81, 115.4, 111.9, 113.8, 115.85, 122.05, 121.58, 122.0, 130.25, 139.41, 138.18, 136.67, 148.01, 164.44, 145.82, 123.7, 135.75, 158.1, 164.7, 159.58, 166.86, 182.23, 177.54, 172.71, 180.43, 192.72, 187.24, 178.13, 182.44, 189.86, 188.37, 183.39, 197.93, 203.81, 196.73, 191.03, 185.27, 188.63, 183.9, 173.0, 162.56, 160.49, 148.34, 140.58, 145.16, 143.49, 137.0, 133.14, 134.06, 142.13, 142.42, 137.6, 139.35, 155.23, 148.43, 141.67, 149.65, 162.78, 149.89, 151.6, 127.91, 148.43, 165.52, 169.31, 161.99, 170.39, 168.35, 159.3, 165.23, 179.03, 173.78, 161.61, 162.67, 166.78, 166.1, 165.76, 171.18, 183.91, 181.4, 180.69, 178.21, 188.18, 175.74, 178.18], "hist_tri_anterior": [null, 1.9, 3.7, 4.3, 0.9, 1.4, 2.0, -0.7, 0.5, 0.4, -1.3, -4.5, -3.6, -1.2, -2.3, 2.0, 0.7, 4.1, 0.0, 3.6, 1.7, -2.6, -1.4, -5.6, 1.2, 2.3, 1.6, 2.1, -3.0, -7.0, 0.7, 4.5, 3.2, 3.4, 2.0, -1.7, -2.0, 4.9, -0.6, 0.2, 4.6, -0.4, 0.9, 3.1, 3.9, 4.3, 1.9, 2.6, 3.1, 5.8, 5.2, -8.3, -11.0, 7.2, 9.9, 7.6, 1.9, 2.0, 3.1, 0.5, 2.2, 2.0, 1.2, 0.0, -0.6, 0.3, -0.9, 1.9, 1.2, 6.0, -1.4, -1.0, 0.3, -4.4, -2.3, -0.2, -3.1, -6.9, -5.6, -5.3, -2.3, 2.5, -6.1, -1.9, 0.4, 0.0, 0.4, 3.1, -0.1, 0.7, 5.3, -1.8, -1.2, 5.2, 2.8, -5.7, 4.9, -15.9, 9.8, 13.8, 6.3, -4.7, -0.1, 0.6, -1.8, 3.3, 3.1, -1.2, -3.7, 0.3, -2.5, 1.8, 3.0, 2.8, 2.0, 1.5, 2.3, -1.8, 0.2, -3.4, 3.5], "hist_tri_ano_anterior": [-12.7, -4.1, 10.1, 13.9, 11.3, 10.7, 8.5, 3.6, 3.5, 2.1, -1.2, -4.9, -8.4, -10.4, -11.3, -5.0, -0.3, 3.9, 6.8, 8.8, 10.2, 2.0, 1.2, -7.4, -7.9, -4.3, -0.5, 7.6, 3.1, -6.8, -6.9, -4.9, 0.9, 11.9, 14.2, 7.2, 1.4, 3.0, 0.9, 2.6, 8.8, 3.6, 5.8, 8.7, 7.2, 12.4, 14.2, 13.7, 12.0, 13.6, 18.0, 5.5, -9.5, -8.3, -3.9, 12.9, 29.0, 22.9, 15.3, 7.8, 8.2, 8.1, 5.8, 5.5, 3.1, 1.1, -1.5, 0.6, 3.0, 8.5, 7.3, 4.4, 4.2, -6.4, -7.4, -6.5, -9.4, -12.3, -14.9, -19.3, -18.7, -10.7, -10.6, -7.6, -5.3, -7.6, -0.9, 4.0, 3.4, 3.9, 9.2, 4.2, 3.0, 7.4, 4.9, 1.0, 7.0, -14.5, -8.8, 10.4, 11.7, 26.7, 14.8, 1.7, -5.9, 2.0, 5.1, 3.2, 1.5, -1.5, -6.8, -4.4, 2.6, 5.2, 10.3, 9.2, 9.0, 4.1, 2.3, -3.1, -1.4], "hist_acum_4tri": [-9.2, -9.8, -4.4, 1.2, 7.4, 11.5, 11.0, 8.4, 6.6, 4.4, 1.9, -0.2, -3.0, -6.2, -8.8, -8.9, -7.0, -3.4, 1.3, 4.8, 7.4, 6.9, 5.4, 1.3, -3.1, -4.6, -5.0, -1.4, 1.3, 0.7, -0.9, -4.0, -4.5, 0.0, 5.3, 8.5, 8.6, 6.3, 3.0, 2.0, 3.7, 3.9, 5.1, 6.7, 6.3, 8.5, 10.7, 12.0, 13.1, 13.4, 14.4, 12.3, 6.9, 1.3, -4.1, -2.1, 6.2, 14.0, 19.5, 17.9, 13.1, 9.8, 7.4, 6.8, 5.6, 3.9, 2.0, 0.8, 0.8, 2.6, 4.9, 5.8, 6.1, 2.3, -1.5, -4.2, -7.4, -8.8, -10.7, -13.9, -16.3, -16.0, -15.1, -12.1, -8.7, -7.9, -5.4, -2.6, -0.5, 2.5, 5.2, 5.2, 5.1, 6.0, 4.9, 4.0, 5.0, -0.5, -4.1, -1.7, -0.5, 9.0, 15.5, 12.9, 8.0, 2.8, 0.7, 1.1, 3.0, 2.1, -1.1, -3.0, -2.7, -1.1, 3.3, 6.9, 8.4, 8.1, 6.0, 2.9, 0.4], "hist_acum_ano": [-12.7, -8.4, -2.6, 1.2, 11.3, 11.0, 10.1, 8.4, 3.5, 2.8, 1.4, -0.2, -8.4, -9.4, -10.1, -8.9, -0.3, 1.8, 3.5, 4.8, 10.2, 6.0, 4.3, 1.3, -7.9, -6.1, -4.2, -1.4, 3.1, -2.0, -3.7, -4.0, 0.9, 6.3, 8.9, 8.5, 1.4, 2.2, 1.7, 2.0, 8.8, 6.1, 6.0, 6.7, 7.2, 9.8, 11.4, 12.0, 12.0, 12.9, 14.7, 12.3, -9.5, -8.9, -7.0, -2.1, 29.0, 25.8, 21.8, 17.9, 8.2, 8.2, 7.3, 6.8, 3.1, 2.1, 0.8, 0.8, 3.0, 5.8, 6.3, 5.8, 4.2, -1.3, -3.5, -4.2, -9.4, -10.8, -12.2, -13.9, -18.7, -14.8, -13.5, -12.1, -5.3, -6.5, -4.6, -2.6, 3.4, 3.7, 5.6, 5.2, 3.0, 5.2, 5.1, 4.0, 7.0, -4.1, -5.8, -1.7, 11.7, 18.5, 17.2, 12.9, -5.9, -2.0, 0.4, 1.1, 1.5, -0.1, -2.5, -3.0, 2.6, 3.9, 6.1, 6.9, 9.0, 6.5, 5.0, 2.9, -1.4]}, {"nome": "Importação de bens e serviços (-)", "grupo": "DEMANDA", "nivel": "TOTAL", "hist_indice": [82.07, 98.2, 114.44, 127.67, 104.68, 121.6, 132.62, 125.13, 112.9, 118.86, 129.85, 122.14, 92.73, 101.07, 105.48, 111.45, 96.52, 108.46, 124.19, 125.92, 119.95, 122.37, 117.73, 110.19, 97.66, 102.14, 107.59, 100.28, 93.13, 97.94, 103.62, 111.01, 102.7, 109.95, 117.07, 118.02, 111.86, 119.1, 126.11, 124.08, 128.41, 134.68, 151.72, 151.81, 153.26, 158.36, 181.12, 184.69, 176.97, 195.71, 219.98, 200.1, 154.03, 171.06, 194.54, 212.89, 214.02, 232.89, 267.03, 264.96, 239.02, 265.71, 282.84, 283.29, 254.74, 272.29, 267.48, 288.47, 272.11, 290.32, 297.5, 295.27, 271.94, 278.09, 299.42, 279.51, 257.48, 247.22, 240.04, 224.02, 201.63, 220.89, 223.36, 222.68, 224.55, 218.17, 240.08, 244.11, 241.14, 230.48, 271.69, 255.35, 234.64, 241.95, 278.19, 257.19, 248.16, 207.54, 209.65, 250.71, 269.36, 253.98, 257.85, 260.87, 241.79, 253.88, 286.04, 270.25, 245.84, 256.55, 269.37, 267.76, 272.35, 296.12, 320.75, 312.19, 308.46, 307.61, 327.9, 311.14, 312.21], "hist_tri_anterior": [null, 9.4, 7.3, 10.7, 0.1, 4.1, 0.5, -6.2, 9.5, -5.5, 0.8, -5.8, -9.3, -1.3, -3.7, 6.9, -0.6, 4.6, 9.2, 3.4, 3.0, -3.1, -7.8, -6.7, -0.6, -2.6, -1.2, -4.3, 2.4, -0.9, -0.7, 10.3, -1.0, 3.8, -0.3, 3.7, 3.3, 1.9, -1.7, 4.3, 7.1, 3.4, 6.7, 3.4, 5.1, 1.8, 7.4, 2.7, 4.0, 7.7, 2.6, -6.1, -14.2, 5.2, 4.8, 12.0, 12.7, 2.2, 7.4, 0.4, 1.0, 4.2, 1.0, 3.6, -4.7, 2.6, -3.4, 5.1, 3.9, 1.1, -1.9, -0.4, 0.4, -2.0, 2.6, -6.2, -0.3, -6.5, -8.8, -5.7, -5.0, 10.4, -6.4, 4.1, 2.2, 0.2, 3.5, 3.4, -0.6, 0.0, 10.3, -7.3, -2.9, 6.1, 4.5, -6.4, -0.2, -12.3, -7.7, 20.8, 13.3, -3.8, -6.3, 2.2, -2.2, 5.8, 4.9, -1.4, -9.2, 6.8, 0.9, 1.8, 2.3, 9.3, 1.4, 0.8, 3.5, -2.1, -0.1, -1.1, 4.4], "hist_tri_ano_anterior": [-16.2, -6.6, 15.0, 31.0, 27.5, 23.8, 15.9, -2.0, 7.9, -2.2, -2.1, -2.4, -17.9, -15.0, -18.8, -8.7, 4.1, 7.3, 17.7, 13.0, 24.3, 12.8, -5.2, -12.5, -18.6, -16.5, -8.6, -9.0, -4.6, -4.1, -3.7, 10.7, 10.3, 12.3, 13.0, 6.3, 8.9, 8.3, 7.7, 5.1, 14.8, 13.1, 20.3, 22.3, 19.4, 17.6, 19.4, 21.7, 15.5, 23.6, 21.5, 8.3, -13.0, -12.6, -11.6, 6.4, 39.0, 36.1, 37.3, 24.5, 11.7, 14.1, 5.9, 6.9, 6.6, 2.5, -5.4, 1.8, 6.8, 6.6, 11.2, 2.4, -0.1, -4.2, 0.6, -5.3, -5.3, -11.1, -19.8, -19.9, -21.7, -10.7, -6.9, -0.6, 11.4, -1.2, 7.5, 9.6, 7.4, 5.6, 13.2, 4.6, -2.7, 5.0, 2.4, 0.7, 5.8, -14.2, -24.6, -2.5, 8.5, 22.4, 23.0, 4.0, -10.2, 0.0, 10.9, 3.6, 1.7, 1.1, -5.8, -0.9, 10.8, 15.4, 19.1, 16.6, 13.3, 3.9, 2.2, -0.3, 1.2], "hist_acum_4tri": [-1.9, -7.1, -2.8, 5.6, 15.8, 24.2, 24.1, 14.6, 10.6, 4.5, 0.0, -0.1, -5.8, -8.9, -13.4, -15.1, -10.6, -5.4, 4.6, 10.8, 15.4, 16.7, 10.3, 3.3, -6.4, -13.1, -14.1, -13.3, -10.0, -6.7, -5.4, -0.5, 3.0, 7.1, 11.6, 10.4, 10.0, 9.1, 7.8, 7.5, 8.9, 10.1, 13.4, 17.8, 18.8, 19.8, 19.6, 19.6, 18.5, 20.1, 20.6, 17.0, 9.8, 0.9, -7.4, -7.6, 2.9, 14.7, 28.8, 33.6, 26.7, 21.3, 13.6, 9.4, 8.2, 5.4, 2.4, 1.1, 1.3, 2.3, 6.6, 6.7, 5.0, 2.2, -0.3, -2.3, -3.5, -5.2, -10.5, -14.2, -18.1, -18.2, -15.1, -10.3, -2.3, 0.2, 4.1, 6.7, 5.8, 7.5, 9.1, 7.7, 5.2, 5.0, 2.3, 1.3, 3.4, -1.2, -8.7, -9.5, -8.6, -0.7, 11.9, 13.8, 8.2, 3.1, 1.0, 1.0, 4.1, 4.4, -0.1, -1.2, 0.9, 4.4, 11.0, 15.6, 16.1, 13.0, 8.6, 4.5, 1.7], "hist_acum_ano": [-16.2, -11.2, -2.6, 5.6, 27.5, 25.5, 21.8, 14.6, 7.9, 2.4, 0.8, -0.1, -17.9, -16.4, -17.2, -15.1, 4.1, 5.8, 10.0, 10.8, 24.3, 18.2, 9.4, 3.3, -18.6, -17.5, -14.6, -13.3, -4.6, -4.4, -4.1, -0.5, 10.3, 11.3, 11.9, 10.4, 8.9, 8.6, 8.3, 7.5, 14.8, 13.9, 16.2, 17.8, 19.4, 18.4, 18.8, 19.6, 15.5, 19.6, 20.3, 17.0, -13.0, -12.8, -12.3, -7.6, 39.0, 37.5, 37.4, 33.6, 11.7, 12.9, 10.3, 9.4, 6.6, 4.4, 0.9, 1.1, 6.8, 6.7, 8.2, 6.7, -0.1, -2.2, -1.2, -2.3, -5.3, -8.2, -12.3, -14.2, -21.7, -16.3, -13.3, -10.3, 11.4, 4.8, 5.7, 6.7, 7.4, 6.5, 8.9, 7.7, -2.7, 1.1, 1.5, 1.3, 5.8, -4.4, -11.8, -9.5, 8.5, 14.8, 17.4, 13.8, -10.2, -5.3, 0.1, 1.0, 1.7, 1.4, -1.3, -1.2, 10.8, 13.2, 15.2, 15.6, 13.3, 8.4, 6.2, 4.5, 1.2]}, {"nome": "Impostos líquidos sobre produtos", "grupo": "AGREGADO", "nivel": "TOTAL", "hist_indice": [93.66, 99.97, 108.13, 112.97, 102.07, 111.08, 116.66, 112.96, 103.65, 109.43, 113.68, 108.31, 98.06, 105.0, 108.67, 109.66, 108.17, 112.7, 115.97, 115.54, 115.98, 114.16, 113.93, 111.19, 108.74, 113.88, 116.64, 116.15, 113.02, 112.92, 115.22, 117.18, 116.17, 120.7, 125.1, 125.58, 120.73, 127.2, 129.73, 130.66, 129.4, 133.47, 137.57, 135.9, 136.76, 143.29, 146.56, 150.55, 148.0, 155.68, 162.71, 154.11, 143.29, 150.77, 160.09, 164.59, 162.67, 167.89, 176.18, 178.73, 173.8, 179.56, 183.78, 184.56, 179.05, 183.72, 190.12, 195.33, 184.46, 192.98, 198.47, 200.28, 191.73, 191.72, 197.02, 201.59, 186.76, 183.18, 183.12, 182.18, 169.9, 172.07, 175.57, 176.66, 170.16, 173.01, 180.08, 183.17, 175.43, 175.92, 183.61, 185.27, 177.86, 181.27, 189.2, 191.24, 179.29, 157.54, 181.52, 192.76, 184.28, 183.26, 192.54, 195.24, 184.69, 189.77, 198.71, 199.53, 191.62, 195.54, 201.43, 201.82, 199.55, 206.86, 214.94, 214.33, 205.28, 209.89, 217.92, 216.47, 209.23], "hist_tri_anterior": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "hist_tri_ano_anterior": [-6.6, -1.7, 9.9, 13.3, 9.0, 11.1, 7.9, 0.0, 1.5, -1.5, -2.6, -4.1, -5.4, -4.0, -4.4, 1.2, 10.3, 7.3, 6.7, 5.4, 7.2, 1.3, -1.8, -3.8, -6.2, -0.2, 2.4, 4.5, 3.9, -0.8, -1.2, 0.9, 2.8, 6.9, 8.6, 7.2, 3.9, 5.4, 3.7, 4.0, 7.2, 4.9, 6.0, 4.0, 5.7, 7.4, 6.5, 10.8, 8.2, 8.6, 11.0, 2.4, -3.2, -3.2, -1.6, 6.8, 13.5, 11.4, 10.1, 8.6, 6.8, 6.9, 4.3, 3.3, 3.0, 2.3, 3.5, 5.8, 3.0, 5.0, 4.4, 2.5, 3.9, -0.7, -0.7, 0.7, -2.6, -4.5, -7.1, -9.6, -9.0, -6.1, -4.1, -3.0, 0.2, 0.5, 2.6, 3.7, 3.1, 1.7, 2.0, 1.1, 1.4, 3.0, 3.0, 3.2, 0.8, -13.1, -4.1, 0.8, 2.8, 16.3, 6.1, 1.3, 0.2, 3.5, 3.2, 2.2, 3.7, 3.0, 1.4, 1.1, 4.1, 5.8, 6.7, 6.2, 2.9, 1.5, 1.4, 1.0, 1.9], "hist_acum_4tri": [-1.9, -3.0, 0.3, 3.7, 7.6, 10.8, 10.3, 6.8, 5.0, 1.9, -0.7, -1.7, -3.3, -4.0, -4.5, -3.1, 0.5, 3.3, 6.3, 7.4, 6.6, 5.1, 2.9, 0.6, -2.6, -3.0, -2.0, 0.0, 2.6, 2.5, 1.5, 0.6, 0.4, 2.3, 4.8, 6.4, 6.6, 6.3, 5.0, 4.3, 5.1, 4.9, 5.5, 5.5, 5.2, 5.8, 5.9, 7.6, 8.2, 8.5, 9.7, 7.5, 4.7, 1.7, -1.4, -0.3, 3.6, 7.3, 10.4, 10.8, 9.2, 8.1, 6.6, 5.3, 4.4, 3.2, 3.0, 3.7, 3.7, 4.3, 4.6, 3.7, 4.0, 2.5, 1.2, 0.8, -0.8, -1.7, -3.3, -6.0, -7.6, -8.0, -7.3, -5.6, -3.3, -1.7, 0.0, 1.8, 2.5, 2.8, 2.6, 2.0, 1.5, 1.9, 2.2, 2.7, 2.5, -1.5, -3.3, -3.8, -3.4, 3.4, 6.1, 6.2, 5.5, 2.8, 2.1, 2.3, 3.2, 3.0, 2.6, 2.3, 2.4, 3.1, 4.4, 5.7, 5.4, 4.3, 2.9, 1.7, 1.4], "hist_acum_ano": [-6.6, -4.1, 0.5, 3.7, 9.0, 10.1, 9.3, 6.8, 1.5, 0.0, -0.9, -1.7, -5.4, -4.7, -4.6, -3.1, 10.3, 8.8, 8.1, 7.4, 7.2, 4.2, 2.1, 0.6, -6.2, -3.3, -1.4, 0.0, 3.9, 1.5, 0.6, 0.6, 2.8, 4.8, 6.1, 6.4, 3.9, 4.7, 4.3, 4.3, 7.2, 6.0, 6.0, 5.5, 5.7, 6.5, 6.5, 7.6, 8.2, 8.4, 9.3, 7.5, -3.2, -3.2, -2.6, -0.3, 13.5, 12.4, 11.6, 10.8, 6.8, 6.9, 6.0, 5.3, 3.0, 2.7, 2.9, 3.7, 3.0, 4.0, 4.2, 3.7, 3.9, 1.6, 0.8, 0.8, -2.6, -3.5, -4.7, -6.0, -9.0, -7.6, -6.4, -5.6, 0.2, 0.4, 1.1, 1.8, 3.1, 2.4, 2.2, 2.0, 1.4, 2.2, 2.5, 2.7, 0.8, -6.2, -5.5, -3.8, 2.8, 9.1, 8.0, 6.2, 0.2, 1.9, 2.3, 2.3, 3.7, 3.4, 2.7, 2.3, 4.1, 5.0, 5.6, 5.7, 2.9, 2.2, 1.9, 1.7, 1.9]}, {"nome": "Indústria - total", "grupo": "OFERTA", "nivel": "GRANDE_GRUPO", "hist_indice": [93.19, 97.9, 111.62, 101.19, 96.25, 105.77, 111.85, 107.7, 96.31, 105.47, 108.83, 102.15, 92.23, 100.81, 105.0, 103.95, 96.45, 104.78, 109.67, 108.83, 100.42, 105.23, 106.79, 104.59, 98.08, 107.66, 112.93, 114.21, 98.15, 105.52, 115.09, 114.59, 105.39, 114.92, 125.25, 123.38, 109.82, 120.94, 123.86, 123.68, 113.45, 118.69, 127.01, 128.74, 118.14, 129.07, 135.84, 135.12, 126.58, 135.83, 145.04, 131.97, 112.91, 125.01, 136.69, 139.44, 130.2, 141.25, 148.05, 146.99, 137.68, 148.49, 153.92, 149.71, 140.97, 143.75, 153.21, 147.6, 138.96, 150.15, 157.6, 151.52, 144.36, 144.84, 152.0, 148.0, 138.38, 137.94, 143.26, 135.68, 128.1, 132.56, 138.34, 130.91, 125.62, 129.54, 137.84, 134.25, 127.28, 131.05, 139.23, 133.47, 125.4, 130.57, 138.23, 133.27, 123.87, 113.39, 138.3, 136.24, 131.58, 134.64, 140.27, 131.08, 128.55, 136.1, 143.97, 137.12, 130.6, 137.37, 145.65, 141.29, 134.47, 142.81, 150.41, 144.34, 137.71, 144.37, 152.97, 145.24, 139.96], "hist_tri_anterior": [null, -3.4, 8.8, -6.1, 5.3, -0.5, 2.0, -0.4, -2.1, 1.1, -1.2, -3.1, -0.9, 0.8, -0.2, 1.9, 1.5, 0.9, 0.5, 1.6, 0.7, -2.0, -3.1, 0.0, 4.1, 0.9, 0.8, 3.0, -5.2, 0.7, 3.5, 1.2, 1.7, 2.3, 3.6, -0.2, -1.0, 2.0, -2.1, 1.3, 1.1, -1.3, 1.6, 2.9, 0.5, 3.4, 0.3, 0.8, 2.8, 0.5, 2.8, -7.9, -6.3, 4.6, 4.0, 4.1, 1.0, 3.2, 0.0, 1.5, 0.4, 3.1, -1.1, -0.3, 0.3, -2.1, 1.5, -0.9, 0.3, 2.9, 0.5, -0.8, 0.1, -2.5, -0.5, 0.8, -2.1, -2.8, -2.0, -1.7, -0.2, -0.6, -1.0, -1.7, 0.9, 0.3, 0.3, 1.1, 0.5, -1.6, 1.1, -0.5, -0.9, 0.6, 0.2, 0.1, -1.9, -11.8, 15.4, 2.5, 1.7, -1.6, -1.1, -2.7, 3.3, 1.5, 0.5, -0.6, 0.2, 0.9, 0.7, 1.5, 0.6, 0.5, 0.7, 0.4, 0.1, 0.6, 0.6, -0.7, 1.0], "hist_tri_ano_anterior": [-6.0, -3.0, 11.3, 1.5, 3.3, 8.0, 0.2, 6.4, 0.1, -0.3, -2.7, -5.2, -4.2, -4.4, -3.5, 1.8, 4.6, 3.9, 4.4, 4.7, 4.1, 0.4, -2.6, -3.9, -2.3, 2.3, 5.7, 9.2, 0.1, -2.0, 1.9, 0.3, 7.4, 8.9, 8.8, 7.7, 4.2, 5.2, -1.1, 0.2, 3.3, -1.9, 2.5, 4.1, 4.1, 8.7, 7.0, 5.0, 7.1, 5.2, 6.8, -2.3, -10.8, -8.0, -5.8, 5.7, 15.3, 13.0, 8.3, 5.4, 5.7, 5.1, 4.0, 1.9, 2.4, -3.2, -0.5, -1.4, -1.4, 4.4, 2.9, 2.6, 3.9, -3.5, -3.6, -2.3, -4.1, -4.8, -5.8, -8.3, -7.4, -3.9, -3.4, -3.5, -1.9, -2.3, -0.4, 2.6, 1.3, 1.2, 1.0, -0.6, -1.5, -0.4, -0.7, -0.1, -1.2, -13.2, 0.0, 2.2, 6.2, 18.7, 1.4, -3.8, -2.3, 1.1, 2.6, 4.6, 1.6, 0.9, 1.2, 3.0, 3.0, 4.0, 3.3, 2.2, 2.4, 1.1, 1.7, 0.6, 1.6], "hist_acum_4tri": [-0.6, -2.3, 0.5, 1.0, 3.3, 6.1, 3.1, 4.4, 3.6, 1.6, 0.8, -2.1, -3.1, -4.1, -4.3, -2.6, -0.6, 1.5, 3.7, 4.4, 4.3, 3.4, 1.5, -0.6, -2.1, -1.7, 0.5, 3.8, 4.4, 3.3, 2.3, 0.1, 1.8, 4.4, 6.3, 8.2, 7.4, 6.5, 3.9, 2.0, 1.8, 0.1, 1.0, 2.0, 2.2, 4.9, 6.0, 6.2, 6.9, 6.0, 6.0, 4.1, -0.2, -3.5, -6.6, -4.7, 1.1, 6.3, 10.3, 10.2, 8.0, 6.1, 5.0, 4.1, 3.3, 1.2, 0.1, -0.7, -1.6, 0.3, 1.1, 2.2, 3.4, 1.4, -0.3, -1.5, -3.4, -3.7, -4.2, -5.8, -6.6, -6.4, -5.8, -4.6, -3.2, -2.8, -2.0, -0.5, 0.3, 1.1, 1.5, 0.7, 0.0, -0.3, -0.8, -0.7, -0.6, -3.8, -3.6, -3.0, -1.2, 6.3, 6.7, 5.0, 2.9, -0.9, -0.6, 1.5, 2.5, 2.4, 2.0, 1.7, 2.0, 2.8, 3.3, 3.1, 3.0, 2.2, 1.8, 1.4, 1.3], "hist_acum_ano": [-6.0, -4.5, 0.8, 1.0, 3.3, 5.7, 3.7, 4.4, 0.1, -0.1, -1.0, -2.1, -4.2, -4.3, -4.0, -2.6, 4.6, 4.2, 4.3, 4.4, 4.1, 2.2, 0.5, -0.6, -2.3, 0.0, 2.0, 3.8, 0.1, -1.0, 0.0, 0.1, 7.4, 8.2, 8.4, 8.2, 4.2, 4.7, 2.6, 2.0, 3.3, 0.6, 1.3, 2.0, 4.1, 6.5, 6.7, 6.2, 7.1, 6.1, 6.4, 4.1, -10.8, -9.3, -8.1, -4.7, 15.3, 14.1, 12.0, 10.2, 5.7, 5.4, 4.9, 4.1, 2.4, -0.5, -0.5, -0.7, -1.4, 1.5, 2.0, 2.2, 3.9, 0.0, -1.2, -1.5, -4.1, -4.5, -4.9, -5.8, -7.4, -5.7, -4.9, -4.6, -1.9, -2.1, -1.5, -0.5, 1.3, 1.2, 1.2, 0.7, -1.5, -0.9, -0.8, -0.7, -1.2, -7.3, -4.7, -3.0, 6.2, 12.2, 8.2, 5.0, -2.3, -0.6, 0.5, 1.5, 1.6, 1.3, 1.2, 1.7, 3.0, 3.5, 3.4, 3.1, 2.4, 1.7, 1.7, 1.4, 1.6]}, {"nome": "Indústrias de transformação", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [89.57, 96.06, 115.21, 99.48, 92.02, 104.88, 109.88, 103.53, 88.11, 101.19, 104.56, 96.58, 84.37, 97.05, 101.34, 100.4, 89.91, 102.2, 107.1, 105.76, 94.24, 102.97, 106.93, 103.72, 92.07, 103.65, 110.06, 110.61, 89.66, 105.8, 118.54, 113.47, 102.38, 114.16, 126.03, 123.72, 107.01, 121.15, 124.74, 123.86, 109.69, 117.6, 126.82, 128.52, 113.08, 127.6, 136.37, 135.21, 123.83, 135.84, 145.75, 128.12, 103.72, 117.49, 130.49, 132.4, 120.23, 131.68, 139.8, 136.89, 126.14, 137.45, 142.38, 134.5, 124.16, 129.29, 140.52, 133.64, 124.18, 136.99, 145.45, 136.89, 124.93, 126.46, 138.02, 128.63, 117.14, 118.35, 124.44, 114.15, 106.03, 113.07, 120.96, 111.42, 106.13, 113.21, 124.28, 118.29, 110.42, 115.35, 126.18, 116.4, 109.11, 117.02, 123.74, 116.48, 106.7, 91.95, 123.12, 122.81, 114.95, 116.79, 120.75, 108.89, 107.6, 115.29, 122.73, 113.23, 106.07, 112.91, 121.5, 112.55, 107.91, 117.37, 126.76, 118.53, 110.64, 117.13, 125.94, 116.13, 109.66], "hist_tri_anterior": [null, -5.1, 15.4, -9.6, 3.5, 1.3, 0.5, -1.3, -4.2, 1.6, -1.0, -3.6, -0.8, 1.4, -0.1, 3.1, 1.4, 1.2, 0.2, 2.2, 0.8, -1.9, -1.6, 0.3, 1.3, 1.1, 0.1, 3.9, -6.9, 5.8, 5.5, -1.6, 3.0, 1.0, 4.1, 0.6, -1.5, 3.0, -3.0, 1.5, 0.9, -2.1, 1.7, 3.4, -0.3, 3.6, 1.2, 0.9, 2.6, 1.6, 1.8, -10.6, -8.4, 4.0, 4.3, 4.6, 0.7, 1.9, 0.0, 1.4, 1.0, 2.0, -2.6, -1.6, 0.6, -2.3, 1.9, -0.3, 0.5, 3.9, -0.6, -0.8, -2.1, -4.2, 1.7, -1.2, -2.4, -4.3, -3.0, -1.9, -0.2, 0.6, -1.4, -1.3, 2.1, 0.8, 1.6, 1.6, -0.3, -1.2, 1.7, -1.9, 0.2, 1.3, -1.5, 0.1, -2.1, -18.6, 24.8, 6.1, -0.6, -3.9, -3.4, -3.7, 5.1, 0.8, -0.5, -1.2, -0.5, 0.0, 0.4, -0.3, 1.6, 2.2, 0.8, 0.7, -1.2, -0.4, 0.2, -0.6, 0.1], "hist_tri_ano_anterior": [-7.6, -5.5, 13.7, -0.6, 2.7, 9.2, -4.6, 4.1, -4.2, -3.5, -4.8, -6.7, -4.2, -4.1, -3.1, 4.0, 6.6, 5.3, 5.7, 5.3, 4.8, 0.7, -0.2, -1.9, -2.3, 0.7, 2.9, 6.6, -2.6, 2.1, 7.7, 2.6, 14.2, 7.9, 6.3, 9.0, 4.5, 6.1, -1.0, 0.1, 2.5, -2.9, 1.7, 3.8, 3.1, 8.5, 7.5, 5.2, 9.5, 6.5, 6.9, -5.2, -16.2, -13.5, -10.5, 3.3, 15.9, 12.1, 7.1, 3.4, 4.9, 4.4, 1.8, -1.7, -1.6, -5.9, -1.3, -0.6, 0.0, 6.0, 3.5, 2.4, 0.6, -7.7, -5.1, -6.0, -6.2, -6.4, -9.8, -11.3, -9.5, -4.5, -2.8, -2.4, 0.1, 0.1, 2.7, 6.2, 4.0, 1.9, 1.5, -1.6, -1.2, 1.4, -1.9, 0.1, -2.2, -21.4, -0.5, 5.4, 7.7, 27.0, -1.9, -11.3, -6.4, -1.3, 1.6, 4.0, -1.4, -2.1, -1.0, -0.6, 1.7, 3.9, 4.3, 5.3, 2.5, -0.2, -0.6, -2.0, -0.9], "hist_acum_4tri": [1.3, -2.6, 0.3, 0.1, 2.6, 6.4, 1.3, 2.5, 0.9, -2.2, -2.2, -4.8, -4.8, -5.0, -4.5, -1.9, 0.5, 3.0, 5.3, 5.7, 5.3, 4.1, 2.6, 0.7, -0.9, -0.9, -0.1, 2.1, 2.0, 2.4, 3.7, 2.7, 6.3, 7.8, 7.4, 9.1, 7.0, 6.5, 4.5, 2.2, 1.8, -0.4, 0.3, 1.2, 1.4, 4.2, 5.8, 6.1, 7.6, 7.1, 6.9, 4.1, -1.8, -6.8, -11.2, -9.3, -2.5, 4.0, 9.2, 9.2, 6.8, 4.9, 3.6, 2.2, 0.7, -1.8, -2.6, -2.4, -2.0, 0.9, 2.2, 3.0, 3.2, -0.3, -2.6, -4.7, -6.2, -5.9, -7.2, -8.5, -9.3, -8.9, -7.0, -4.8, -2.5, -1.3, 0.2, 2.3, 3.2, 3.7, 3.3, 1.4, 0.2, 0.1, -0.8, -0.4, -0.7, -6.4, -6.0, -4.7, -2.4, 8.8, 8.5, 3.8, 0.3, -5.3, -4.4, -0.5, 0.7, 0.5, -0.2, -1.3, -0.5, 1.0, 2.4, 3.9, 4.1, 3.0, 1.6, -0.2, -0.9], "hist_acum_ano": [-7.6, -6.5, 0.3, 0.1, 2.7, 6.1, 2.0, 2.5, -4.2, -3.9, -4.2, -4.8, -4.2, -4.2, -3.8, -1.9, 6.6, 5.9, 5.8, 5.7, 4.8, 2.7, 1.6, 0.7, -2.3, -0.8, 0.5, 2.1, -2.6, -0.1, 2.7, 2.7, 14.2, 10.8, 9.1, 9.1, 4.5, 5.4, 3.0, 2.2, 2.5, -0.4, 0.3, 1.2, 3.1, 5.9, 6.5, 6.1, 9.5, 7.9, 7.5, 4.1, -16.2, -14.8, -13.2, -9.3, 15.9, 13.9, 11.4, 9.2, 4.9, 4.6, 3.6, 2.2, -1.6, -3.8, -3.0, -2.4, 0.0, 3.0, 3.2, 3.0, 0.6, -3.7, -4.2, -4.7, -6.2, -6.3, -7.6, -8.5, -9.5, -7.0, -5.5, -4.8, 0.1, 0.1, 1.0, 2.3, 4.0, 2.9, 2.4, 1.4, -1.2, 0.2, -0.6, -0.4, -2.2, -12.2, -8.0, -4.7, 7.7, 16.7, 9.5, 3.8, -6.4, -3.8, -1.9, -0.5, -1.4, -1.8, -1.5, -1.3, 1.7, 2.9, 3.4, 3.9, 2.5, 1.1, 0.5, -0.2, -0.9]}, {"nome": "Indústrias extrativas", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [100.38, 99.93, 101.47, 107.97, 99.45, 103.57, 112.84, 114.37, 107.1, 108.73, 114.86, 115.1, 105.89, 100.59, 107.86, 112.0, 105.22, 107.07, 120.16, 132.64, 114.63, 116.29, 126.31, 132.98, 130.55, 140.46, 146.3, 147.58, 134.3, 137.61, 149.99, 168.87, 137.3, 143.12, 152.61, 154.97, 139.95, 159.96, 162.91, 165.22, 159.11, 162.18, 171.56, 176.16, 166.62, 172.04, 174.66, 175.02, 173.06, 180.88, 188.01, 174.71, 163.34, 172.6, 181.3, 184.22, 188.47, 199.59, 207.49, 210.34, 196.54, 206.73, 213.19, 217.39, 202.52, 201.72, 205.41, 208.03, 185.47, 194.85, 203.88, 207.43, 197.31, 210.14, 225.44, 230.4, 222.76, 228.32, 236.81, 224.57, 206.68, 219.28, 237.99, 237.39, 225.84, 234.59, 244.95, 240.32, 223.81, 237.56, 245.11, 242.9, 202.04, 196.57, 231.18, 232.72, 208.46, 208.88, 234.08, 218.51, 205.6, 224.18, 242.34, 229.1, 204.55, 216.52, 235.19, 232.47, 222.78, 236.35, 253.59, 258.11, 236.09, 239.07, 251.34, 248.89, 238.96, 260.16, 281.31, 278.67, 270.31], "hist_tri_anterior": [null, -0.4, -5.0, 4.8, 1.1, 1.8, 3.1, -0.1, 1.5, 1.8, -1.4, -1.0, -0.5, -4.9, 0.2, 2.7, 1.6, 1.7, 4.9, 9.5, -6.6, 0.9, 1.8, 4.7, 7.5, 3.7, -0.8, 0.7, -1.8, 0.7, 3.1, 12.5, -12.5, 1.9, 1.5, 1.7, -2.1, 8.8, -1.4, 1.9, 2.5, -0.7, 1.6, 3.7, -0.3, 0.6, -2.0, 1.4, 5.1, -0.9, 2.0, -5.9, -2.1, 2.7, 2.0, 2.6, 7.6, 2.8, 1.0, 1.9, -1.3, 2.2, 0.0, 2.0, -1.0, -3.2, -1.6, 1.2, -3.7, -0.2, 1.7, 2.0, 1.6, 3.7, 2.4, 3.1, 3.2, -0.2, -1.4, -3.8, -0.5, 0.6, 4.2, 1.4, 1.8, 0.7, -1.2, -0.2, 1.4, 0.0, -1.3, 0.9, -10.0, -6.6, 10.9, 2.8, -2.8, -4.1, 5.5, -4.5, 2.3, 4.2, 1.6, -3.1, -3.1, 1.2, 2.1, 1.4, 3.6, 1.7, 1.0, 4.5, -0.5, -4.9, 0.5, 1.5, 2.8, 5.1, 2.2, 1.5, 3.6], "hist_tri_ano_anterior": [2.2, 6.8, 1.6, -0.3, -0.9, 3.6, 11.2, 5.9, 7.7, 5.0, 1.8, 0.6, -1.1, -7.5, -6.1, -2.7, -0.6, 6.4, 11.4, 18.4, 8.9, 8.6, 5.1, 0.3, 13.9, 20.8, 15.8, 11.0, 2.9, -2.0, 2.5, 14.4, 2.2, 4.0, 1.7, -8.2, 1.9, 11.8, 6.7, 6.6, 13.7, 1.4, 5.3, 6.6, 4.7, 6.1, 1.8, -0.6, 3.9, 5.1, 7.6, -0.2, -5.6, -4.6, -3.6, 5.4, 15.4, 15.6, 14.4, 14.2, 4.3, 3.6, 2.7, 3.4, 3.0, -2.4, -3.7, -4.3, -8.4, -3.4, -0.7, -0.3, 6.4, 7.8, 10.6, 11.1, 12.9, 8.6, 5.0, -2.5, -7.2, -4.0, 0.5, 5.7, 9.3, 7.0, 2.9, 1.2, -0.9, 1.3, 0.1, 1.1, -9.7, -17.3, -5.7, -4.2, 3.2, 6.3, 1.3, -6.1, -1.4, 7.3, 3.5, 4.8, -0.5, -3.4, -3.0, 1.5, 8.9, 9.2, 7.8, 11.0, 6.0, 1.1, -0.9, -3.6, 1.2, 8.8, 11.9, 12.0, 13.1], "hist_acum_4tri": [2.3, 6.5, 5.4, 2.4, 1.7, 1.0, 3.4, 5.0, 7.1, 7.4, 5.0, 3.6, 1.5, -1.5, -3.5, -4.4, -4.3, -1.0, 3.5, 9.1, 11.5, 11.9, 10.2, 5.4, 6.7, 9.6, 12.3, 15.2, 12.3, 6.7, 3.5, 4.6, 4.4, 5.9, 5.7, -0.5, -0.5, 1.4, 2.6, 6.8, 9.6, 6.9, 6.5, 6.5, 4.5, 5.7, 4.8, 2.9, 2.7, 2.5, 4.0, 4.1, 1.7, -0.7, -3.5, -2.1, 2.8, 7.9, 12.7, 14.9, 12.0, 9.0, 6.0, 3.5, 3.2, 1.7, 0.0, -1.9, -4.7, -4.9, -4.2, -3.2, 0.4, 3.2, 6.1, 9.1, 10.6, 10.8, 9.3, 5.7, 0.9, -2.2, -3.2, -1.2, 2.7, 5.5, 6.1, 4.9, 2.5, 1.2, 0.4, 0.4, -1.7, -6.3, -7.8, -9.1, -6.3, -0.6, 1.3, 0.9, -0.2, 0.1, 0.7, 3.6, 3.8, 1.1, -0.6, -1.4, 0.8, 3.8, 6.8, 9.2, 8.5, 6.5, 4.2, 0.5, -0.6, 1.3, 4.5, 8.6, 11.5], "hist_acum_ano": [2.2, 4.4, 3.5, 2.4, -0.9, 1.4, 4.7, 5.0, 7.7, 6.3, 4.7, 3.6, -1.1, -4.3, -4.9, -4.4, -0.6, 2.8, 5.8, 9.1, 8.9, 8.8, 7.5, 5.4, 13.9, 17.4, 16.8, 15.2, 2.9, 0.3, 1.1, 4.6, 2.2, 3.1, 2.6, -0.5, 1.9, 6.9, 6.9, 6.8, 13.7, 7.1, 6.5, 6.5, 4.7, 5.4, 4.2, 2.9, 3.9, 4.5, 5.6, 4.1, -5.6, -5.1, -4.6, -2.1, 15.4, 15.5, 15.1, 14.9, 4.3, 3.9, 3.5, 3.5, 3.0, 0.2, -1.1, -1.9, -8.4, -5.9, -4.2, -3.2, 6.4, 7.1, 8.3, 9.1, 12.9, 10.7, 8.7, 5.7, -7.2, -5.6, -3.5, -1.2, 9.3, 8.1, 6.2, 4.9, -0.9, 0.2, 0.2, 0.4, -9.7, -13.6, -10.9, -9.1, 3.2, 4.7, 3.4, 0.9, -1.4, 3.0, 3.2, 3.6, -0.5, -2.0, -2.4, -1.4, 8.9, 9.0, 8.6, 9.2, 6.0, 3.5, 1.9, 0.5, 1.2, 5.0, 7.4, 8.6, 13.1]}, {"nome": "Informação e comunicação", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [100.89, 103.64, 107.49, 111.83, 105.6, 109.74, 110.38, 120.34, 110.34, 110.92, 123.69, 136.54, 131.0, 135.5, 132.37, 145.26, 145.77, 155.23, 163.2, 170.17, 161.09, 166.59, 169.18, 178.76, 172.38, 173.67, 179.9, 191.95, 177.55, 182.01, 183.18, 191.39, 179.59, 186.73, 192.45, 206.97, 193.23, 200.91, 202.91, 213.02, 195.3, 197.99, 208.46, 214.51, 206.4, 211.6, 216.54, 234.14, 225.51, 232.55, 239.98, 255.48, 231.01, 234.99, 238.06, 249.58, 237.87, 246.71, 253.25, 266.84, 252.5, 264.32, 268.84, 284.24, 269.56, 276.9, 289.33, 308.99, 283.79, 292.61, 292.51, 321.74, 302.82, 308.65, 311.48, 330.36, 311.65, 306.11, 305.07, 318.63, 299.02, 300.15, 305.5, 311.55, 302.18, 301.13, 304.66, 325.25, 300.86, 308.59, 311.95, 334.33, 314.63, 319.86, 326.42, 350.84, 325.5, 315.22, 329.02, 369.24, 348.23, 370.46, 383.65, 423.23, 368.54, 386.02, 407.28, 442.52, 390.78, 403.23, 414.02, 442.96, 408.97, 424.83, 446.89, 470.21, 437.79, 452.27, 470.58, 503.42, 470.97], "hist_tri_anterior": [null, 1.4, 4.1, -2.4, 1.6, 2.7, 0.8, 2.6, -1.6, -0.7, 11.7, 4.3, 2.7, 2.2, -2.5, 4.2, 7.2, 5.1, 4.7, -0.6, 1.1, 2.0, 0.8, 1.0, 3.2, -0.9, 2.8, 2.0, -0.6, 0.8, -0.3, -0.4, 1.2, 2.0, 2.1, 2.3, 0.8, 2.2, 0.0, -0.2, -0.9, -0.2, 4.2, -2.2, 3.8, 1.1, 1.2, 2.9, 3.8, 1.7, 2.0, 1.5, -2.8, 0.4, 0.1, 0.1, 2.5, 2.2, 1.5, 0.5, 1.8, 3.1, 0.7, 0.8, 2.0, 1.2, 3.6, 1.6, -1.4, 1.9, -0.8, 4.4, 0.9, 1.1, 0.2, 0.4, 1.0, -2.4, -1.0, -1.3, 0.5, -0.1, 1.1, -3.8, 4.1, -0.7, 0.3, 0.4, -0.2, 2.1, 0.1, 0.4, 2.4, 0.9, 0.7, 0.3, 2.0, -4.2, 2.7, 4.6, 4.5, 4.8, 1.5, 3.1, -3.1, 2.8, 3.1, 2.0, -1.7, 1.0, 0.2, 1.0, 2.3, 1.7, 2.7, -0.3, 2.5, 1.4, 1.6, 1.6, 2.4], "hist_tri_ano_anterior": [7.5, 6.6, 5.1, 4.9, 4.7, 5.9, 2.7, 7.6, 4.5, 1.1, 12.1, 13.5, 18.7, 22.2, 7.0, 6.4, 11.3, 14.6, 23.3, 17.2, 10.5, 7.3, 3.7, 5.0, 7.0, 4.2, 6.3, 7.4, 3.0, 4.8, 1.8, -0.3, 1.1, 2.6, 5.1, 8.1, 7.6, 7.6, 5.4, 2.9, 1.1, -1.5, 2.7, 0.7, 5.7, 6.9, 3.9, 9.2, 9.3, 9.9, 10.8, 9.1, 2.4, 1.0, -0.8, -2.3, 3.0, 5.0, 6.4, 6.9, 6.1, 7.1, 6.2, 6.5, 6.8, 4.8, 7.6, 8.7, 5.3, 5.7, 1.1, 4.1, 6.7, 5.5, 6.5, 2.7, 2.9, -0.8, -2.1, -3.5, -4.1, -1.9, 0.1, -2.2, 1.1, 0.3, -0.3, 4.4, -0.4, 2.5, 2.4, 2.8, 4.6, 3.7, 4.6, 4.9, 3.5, -1.5, 0.8, 5.2, 7.0, 17.5, 16.6, 14.6, 5.8, 4.2, 6.2, 4.6, 6.0, 4.5, 1.7, 0.1, 4.7, 5.4, 7.9, 6.2, 7.0, 6.5, 5.3, 7.1, 7.6], "hist_acum_4tri": [8.4, 8.2, 7.0, 6.0, 5.3, 5.1, 4.5, 5.2, 5.2, 4.0, 6.3, 7.9, 11.4, 16.5, 15.1, 13.0, 11.3, 9.8, 13.8, 16.6, 16.2, 14.2, 9.4, 6.5, 5.7, 5.0, 5.6, 6.3, 5.3, 5.4, 4.3, 2.3, 1.8, 1.3, 2.1, 4.3, 5.9, 7.1, 7.2, 5.8, 4.2, 2.0, 1.3, 0.8, 1.9, 3.9, 4.2, 6.4, 7.3, 8.1, 9.8, 9.8, 8.0, 5.8, 2.9, 0.0, 0.2, 1.1, 2.9, 5.4, 6.1, 6.7, 6.6, 6.5, 6.6, 6.0, 6.4, 7.0, 6.6, 6.8, 5.2, 4.0, 4.4, 4.3, 5.7, 5.3, 4.3, 2.8, 0.7, -0.9, -2.6, -2.9, -2.4, -2.0, -0.8, -0.2, -0.3, 1.4, 1.0, 1.6, 2.2, 1.8, 3.1, 3.3, 3.9, 4.5, 4.2, 2.9, 2.0, 2.1, 3.0, 7.5, 11.4, 13.9, 13.5, 10.2, 7.7, 5.2, 5.2, 5.3, 4.1, 2.9, 2.6, 2.9, 4.4, 6.1, 6.6, 6.9, 6.2, 6.5, 6.6], "hist_acum_ano": [7.5, 7.1, 6.4, 6.0, 4.7, 5.3, 4.4, 5.2, 4.5, 2.7, 5.9, 7.9, 18.7, 20.4, 15.6, 13.0, 11.3, 12.9, 16.4, 16.6, 10.5, 8.9, 7.0, 6.5, 7.0, 5.6, 5.9, 6.3, 3.0, 3.9, 3.2, 2.3, 1.1, 1.9, 3.0, 4.3, 7.6, 7.6, 6.9, 5.8, 1.1, -0.2, 0.8, 0.8, 5.7, 6.3, 5.4, 6.4, 9.3, 9.6, 10.0, 9.8, 2.4, 1.7, 0.9, 0.0, 3.0, 4.0, 4.8, 5.4, 6.1, 6.7, 6.5, 6.5, 6.8, 5.7, 6.4, 7.0, 5.3, 5.5, 4.0, 4.0, 6.7, 6.1, 6.2, 5.3, 2.9, 1.0, 0.0, -0.9, -4.1, -3.0, -2.0, -2.0, 1.1, 0.7, 0.4, 1.4, -0.4, 1.0, 1.5, 1.8, 4.6, 4.1, 4.3, 4.5, 3.5, 1.0, 0.9, 2.1, 7.0, 12.2, 13.7, 13.9, 5.8, 5.0, 5.4, 5.2, 6.0, 5.2, 4.0, 2.9, 4.7, 5.0, 6.0, 6.1, 7.0, 6.7, 6.2, 6.5, 7.6]}, {"nome": "Outras atividades de serviços", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [96.85, 98.46, 101.39, 103.2, 97.69, 100.69, 104.09, 108.69, 98.68, 102.81, 105.77, 108.41, 100.27, 103.24, 106.56, 110.56, 105.14, 106.98, 109.78, 112.46, 103.46, 107.99, 109.13, 112.19, 107.97, 111.27, 114.28, 118.63, 110.51, 110.66, 114.19, 116.57, 109.04, 114.83, 119.24, 125.36, 115.93, 120.91, 125.38, 129.0, 121.01, 124.91, 129.55, 134.3, 126.87, 129.82, 133.19, 138.07, 131.59, 136.95, 141.37, 143.07, 135.81, 139.2, 145.1, 149.48, 139.42, 143.86, 149.62, 155.27, 147.16, 152.62, 156.4, 159.17, 151.61, 156.39, 161.44, 168.09, 154.45, 158.76, 164.5, 170.04, 160.43, 163.85, 166.43, 169.13, 157.34, 159.0, 157.82, 161.13, 153.49, 156.0, 157.82, 159.52, 151.46, 156.98, 160.0, 162.65, 156.78, 161.9, 165.63, 168.83, 161.78, 166.06, 168.59, 174.76, 160.26, 135.47, 150.08, 163.2, 154.86, 160.82, 171.55, 176.7, 172.06, 182.32, 190.5, 194.4, 181.92, 188.33, 193.77, 200.07, 191.7, 198.0, 205.8, 208.72, 195.78, 203.37, 208.01, 213.17, 200.39], "hist_tri_anterior": [null, 0.4, 0.3, -0.5, 1.9, 0.6, 0.7, 2.0, -2.2, 1.5, 0.4, 0.1, -0.3, 0.3, 0.8, 1.2, 1.2, 0.3, 0.5, -0.1, -1.5, 2.0, -1.0, -0.1, 3.7, 0.4, 0.4, 1.1, 0.5, -2.5, 0.8, -0.6, -0.1, 3.7, 1.3, 2.4, 0.0, 1.4, 1.1, 0.6, 1.0, 0.6, 1.4, 1.2, 1.6, -0.3, 0.3, 1.2, 1.5, 2.5, 0.6, -0.8, 2.2, -0.3, 1.6, 1.0, 0.3, 0.4, 1.4, 1.7, 1.8, 1.0, 0.0, 0.0, 0.7, 1.7, 1.1, 1.8, -1.6, 0.2, 1.5, 1.3, 0.8, -0.5, -0.3, -0.3, -0.9, -1.6, -2.5, 0.3, 0.0, 0.2, -0.4, -0.4, 0.2, 1.2, 0.7, -0.3, 1.9, 0.9, 1.1, -0.5, 2.0, 0.1, 0.0, 1.3, -3.3, -16.6, 8.9, 6.2, 1.6, 1.2, 4.6, 0.6, 4.5, 3.1, 2.3, 0.2, -0.1, 0.8, 0.9, 1.4, 1.2, 1.5, 1.6, -0.3, 0.5, 0.8, 0.1, 0.7, 0.8], "hist_tri_ano_anterior": [-0.3, -0.4, 1.3, -0.7, 0.9, 2.3, 2.7, 5.3, 1.0, 2.1, 1.6, -0.3, 1.6, 0.4, 0.8, 2.0, 4.9, 3.6, 3.0, 1.7, -1.6, 0.9, -0.6, -0.2, 4.4, 3.0, 4.7, 5.7, 2.4, -0.5, -0.1, -1.7, -1.3, 3.8, 4.4, 7.5, 6.3, 5.3, 5.2, 2.9, 4.4, 3.3, 3.3, 4.1, 4.8, 3.9, 2.8, 2.8, 3.7, 5.5, 6.1, 3.6, 3.2, 1.6, 2.6, 4.5, 2.7, 3.3, 3.1, 3.9, 5.6, 6.1, 4.5, 2.5, 3.0, 2.5, 3.2, 5.6, 1.9, 1.5, 1.9, 1.2, 3.9, 3.2, 1.2, -0.5, -1.9, -3.0, -5.2, -4.7, -2.4, -1.9, 0.0, -1.0, -1.3, 0.6, 1.4, 2.0, 3.5, 3.1, 3.5, 3.8, 3.2, 2.6, 1.8, 3.5, -0.9, -18.4, -11.0, -6.6, -3.4, 18.7, 14.3, 8.3, 11.1, 13.4, 11.1, 10.0, 5.7, 3.3, 1.7, 2.9, 5.4, 5.1, 6.2, 4.3, 2.1, 2.7, 1.1, 2.1, 2.4], "hist_acum_4tri": [2.9, 1.9, 1.5, 0.0, 0.3, 0.9, 1.3, 2.8, 2.8, 2.8, 2.5, 1.1, 1.2, 0.8, 0.6, 1.2, 2.0, 2.8, 3.3, 3.3, 1.7, 1.0, 0.1, -0.4, 1.1, 1.6, 2.9, 4.5, 4.0, 3.1, 1.9, -0.1, -0.9, 0.1, 1.2, 3.7, 5.5, 5.9, 6.1, 4.9, 4.4, 3.9, 3.5, 3.8, 3.9, 4.0, 3.9, 3.6, 3.3, 3.7, 4.5, 4.7, 4.6, 3.6, 2.8, 3.0, 2.9, 3.3, 3.4, 3.3, 4.0, 4.6, 5.0, 4.6, 4.0, 3.1, 2.8, 3.6, 3.3, 3.1, 2.7, 1.6, 2.1, 2.5, 2.3, 1.9, 0.5, -1.1, -2.6, -3.7, -3.9, -3.6, -2.3, -1.3, -1.1, -0.4, -0.1, 0.7, 1.9, 2.5, 3.0, 3.5, 3.4, 3.3, 2.8, 2.8, 1.8, -3.5, -6.7, -9.3, -9.9, -1.6, 4.8, 9.0, 12.8, 11.7, 10.9, 11.4, 10.0, 7.5, 5.1, 3.4, 3.3, 3.8, 4.9, 5.3, 4.4, 3.8, 2.6, 2.0, 2.1], "hist_acum_ano": [-0.3, -0.4, 0.2, 0.0, 0.9, 1.6, 1.9, 2.8, 1.0, 1.6, 1.6, 1.1, 1.6, 1.0, 0.9, 1.2, 4.9, 4.2, 3.8, 3.3, -1.6, -0.3, -0.4, -0.4, 4.4, 3.7, 4.0, 4.5, 2.4, 0.9, 0.6, -0.1, -1.3, 1.2, 2.3, 3.7, 6.3, 5.8, 5.6, 4.9, 4.4, 3.8, 3.7, 3.8, 4.8, 4.4, 3.8, 3.6, 3.7, 4.6, 5.1, 4.7, 3.2, 2.4, 2.5, 3.0, 2.7, 3.0, 3.0, 3.3, 5.6, 5.8, 5.4, 4.6, 3.0, 2.7, 2.9, 3.6, 1.9, 1.7, 1.8, 1.6, 3.9, 3.5, 2.7, 1.9, -1.9, -2.4, -3.4, -3.7, -2.4, -2.2, -1.4, -1.3, -1.3, -0.3, 0.2, 0.7, 3.5, 3.3, 3.4, 3.5, 3.2, 2.9, 2.5, 2.8, -0.9, -9.8, -10.2, -9.3, -3.4, 6.7, 9.3, 9.0, 11.1, 12.3, 11.8, 11.4, 5.7, 4.5, 3.5, 3.4, 5.4, 5.3, 5.6, 5.3, 2.1, 2.4, 2.0, 2.0, 2.4]}, {"nome": "PIB a preços de mercado", "grupo": "AGREGADO", "nivel": "TOTAL", "hist_indice": [96.84, 100.12, 107.56, 104.31, 100.13, 104.88, 109.49, 108.21, 101.14, 106.46, 109.88, 106.66, 101.92, 106.04, 109.2, 108.97, 106.4, 110.25, 114.19, 113.98, 110.1, 112.82, 114.71, 113.38, 110.63, 115.41, 119.5, 119.24, 113.58, 116.31, 120.25, 119.94, 117.98, 123.65, 128.14, 127.39, 122.92, 129.18, 130.85, 130.13, 128.18, 132.13, 136.72, 136.37, 134.84, 140.77, 144.75, 145.43, 143.14, 149.69, 154.86, 146.92, 139.67, 146.39, 153.06, 154.75, 152.53, 158.86, 163.63, 163.55, 160.45, 166.33, 169.41, 167.75, 163.19, 167.97, 173.63, 171.91, 167.63, 174.73, 178.42, 176.26, 173.45, 173.97, 177.28, 175.86, 170.64, 169.2, 169.72, 166.15, 161.87, 163.75, 165.55, 162.39, 162.33, 165.04, 168.27, 166.58, 165.42, 167.71, 171.73, 169.17, 166.91, 169.68, 173.64, 172.03, 167.6, 152.48, 168.37, 171.46, 170.53, 171.38, 175.46, 173.96, 173.05, 177.45, 183.04, 178.65, 180.74, 184.28, 187.35, 182.9, 185.18, 190.68, 195.1, 189.45, 191.02, 195.18, 198.66, 192.94, 194.53], "hist_tri_anterior": [null, 1.2, 3.7, -1.0, 1.1, 0.5, 1.3, 0.8, -2.0, 1.7, 0.0, -1.1, 0.2, 0.5, 0.0, 1.4, 1.1, 1.4, 1.2, 1.2, 0.4, -0.5, -0.5, -0.3, 2.5, 0.2, 1.4, 1.0, -0.4, -0.8, 0.9, 1.0, 1.4, 2.8, 1.3, 0.8, 0.9, 1.0, -0.6, 1.3, 1.6, 0.3, 1.7, 1.2, 1.9, 1.7, 1.0, 1.5, 1.3, 2.0, 1.6, -3.8, -1.4, 1.8, 2.3, 2.6, 2.1, 1.3, 0.9, 1.4, 1.3, 1.0, -0.2, 0.9, -1.4, 1.8, 1.7, 0.0, 0.5, 1.4, 0.5, 0.2, 0.8, -1.5, -0.1, 0.5, -0.8, -2.3, -1.6, -0.8, -1.4, 0.3, -0.5, -0.1, 1.0, 0.8, 0.2, 0.5, 0.6, -0.1, 1.0, -0.2, 0.3, 0.6, 0.0, 0.9, -2.3, -8.9, 7.9, 3.8, 0.9, -0.7, 0.1, 1.3, 0.7, 1.1, 1.1, 0.4, 1.3, 0.8, 0.1, 0.4, 0.7, 1.7, 0.9, 0.1, 1.3, 0.3, 0.1, 0.3, 1.1], "hist_tri_ano_anterior": [-0.6, 1.3, 5.6, 2.3, 3.4, 4.8, 1.8, 3.7, 1.0, 1.5, 0.4, -1.4, 0.8, -0.4, -0.6, 2.2, 4.4, 4.0, 4.6, 4.6, 3.5, 2.3, 0.5, -0.5, 0.5, 2.3, 4.2, 5.2, 2.7, 0.8, 0.6, 0.6, 3.9, 6.3, 6.6, 6.2, 4.2, 4.5, 2.1, 2.2, 4.3, 2.3, 4.5, 4.8, 5.2, 6.5, 5.9, 6.6, 6.2, 6.3, 7.0, 1.0, -2.4, -2.2, -1.2, 5.3, 9.2, 8.5, 6.9, 5.7, 5.2, 4.7, 3.5, 2.6, 1.7, 1.0, 2.5, 2.5, 2.7, 4.0, 2.8, 2.5, 3.5, -0.4, -0.6, -0.2, -1.6, -2.7, -4.3, -5.5, -5.1, -3.2, -2.5, -2.3, 0.3, 0.8, 1.6, 2.6, 1.9, 1.6, 2.1, 1.6, 0.9, 1.2, 1.1, 1.7, 0.4, -10.1, -3.0, -0.3, 1.7, 12.4, 4.2, 1.5, 1.5, 3.5, 4.3, 2.7, 4.4, 3.9, 2.4, 2.4, 2.5, 3.5, 4.1, 3.6, 3.1, 2.4, 1.8, 1.8, 1.8], "hist_acum_4tri": [2.5, 2.1, 2.3, 2.2, 3.2, 4.0, 3.0, 3.4, 2.8, 2.0, 1.6, 0.3, 0.3, -0.2, -0.4, 0.5, 1.3, 2.4, 3.8, 4.4, 4.2, 3.7, 2.7, 1.4, 0.7, 0.7, 1.6, 3.1, 3.6, 3.2, 2.3, 1.1, 1.4, 2.8, 4.3, 5.8, 5.8, 5.4, 4.2, 3.2, 3.2, 2.7, 3.3, 4.0, 4.2, 5.3, 5.6, 6.1, 6.3, 6.3, 6.5, 5.1, 3.0, 0.8, -1.2, -0.1, 2.6, 5.3, 7.5, 7.5, 6.6, 5.6, 4.8, 4.0, 3.1, 2.2, 1.9, 1.9, 2.2, 2.9, 3.0, 3.0, 3.2, 2.1, 1.2, 0.5, -0.7, -1.3, -2.2, -3.5, -4.4, -4.5, -4.1, -3.3, -1.9, -0.9, 0.1, 1.3, 1.7, 1.9, 2.0, 1.8, 1.5, 1.4, 1.2, 1.2, 1.1, -1.7, -2.8, -3.3, -2.9, 2.4, 4.3, 4.8, 4.7, 2.7, 2.7, 3.0, 3.8, 3.8, 3.3, 3.2, 2.8, 2.7, 3.1, 3.4, 3.6, 3.3, 2.7, 2.3, 2.0], "hist_acum_ano": [-0.6, 0.4, 2.2, 2.2, 3.4, 4.1, 3.3, 3.4, 1.0, 1.3, 0.9, 0.3, 0.8, 0.2, -0.1, 0.5, 4.4, 4.2, 4.3, 4.4, 3.5, 2.9, 2.1, 1.4, 0.5, 1.4, 2.3, 3.1, 2.7, 1.7, 1.3, 1.1, 3.9, 5.1, 5.6, 5.8, 4.2, 4.3, 3.6, 3.2, 4.3, 3.3, 3.7, 4.0, 5.2, 5.9, 5.9, 6.1, 6.2, 6.2, 6.5, 5.1, -2.4, -2.3, -1.9, -0.1, 9.2, 8.9, 8.2, 7.5, 5.2, 4.9, 4.5, 4.0, 1.7, 1.3, 1.7, 1.9, 2.7, 3.4, 3.2, 3.0, 3.5, 1.5, 0.8, 0.5, -1.6, -2.2, -2.9, -3.5, -5.1, -4.2, -3.6, -3.3, 0.3, 0.5, 0.9, 1.3, 1.9, 1.8, 1.9, 1.8, 0.9, 1.0, 1.1, 1.2, 0.4, -4.9, -4.3, -3.3, 1.7, 6.8, 5.9, 4.8, 1.5, 2.5, 3.1, 3.0, 4.4, 4.1, 3.5, 3.2, 2.5, 3.0, 3.4, 3.4, 3.1, 2.7, 2.4, 2.3, 1.8]}, {"nome": "Serviços - total", "grupo": "OFERTA", "nivel": "GRANDE_GRUPO", "hist_indice": [98.31, 100.58, 105.75, 104.55, 100.2, 102.85, 107.1, 109.43, 101.6, 104.76, 109.02, 110.15, 104.41, 106.51, 109.99, 112.37, 107.68, 110.04, 114.74, 117.48, 110.29, 113.54, 116.73, 118.66, 113.53, 116.37, 120.69, 122.97, 115.61, 117.4, 121.26, 123.99, 119.45, 123.94, 127.59, 131.24, 124.87, 129.18, 132.1, 134.46, 130.62, 134.21, 137.86, 140.46, 138.04, 142.25, 145.27, 149.24, 145.34, 150.48, 154.29, 152.43, 146.77, 151.51, 156.47, 160.24, 155.88, 160.64, 165.43, 168.73, 163.22, 167.63, 170.09, 172.24, 166.76, 171.66, 175.68, 178.62, 171.4, 176.97, 180.49, 182.92, 176.22, 178.14, 181.2, 183.25, 174.09, 174.2, 175.04, 175.83, 168.49, 170.45, 172.2, 172.48, 166.43, 170.94, 174.76, 176.74, 170.95, 174.38, 178.38, 179.52, 173.7, 176.64, 180.5, 183.02, 174.26, 159.41, 173.13, 180.39, 173.37, 176.62, 183.12, 187.08, 179.87, 184.98, 192.22, 193.78, 186.1, 190.85, 196.61, 198.14, 192.65, 198.16, 205.03, 205.03, 196.7, 201.96, 207.67, 209.08, 200.91], "hist_tri_anterior": [null, 0.3, 1.3, -2.1, 2.5, 0.5, 0.5, 1.2, -1.0, 1.1, 0.6, 0.1, 0.8, 0.1, 0.1, 1.0, 1.6, 0.5, 1.3, 1.1, -0.5, 1.2, 0.0, 0.4, 1.3, 0.7, 1.1, 0.6, -0.5, -0.4, 0.9, 1.0, 1.7, 1.6, 1.0, 1.7, 0.1, 1.2, 0.7, 0.7, 1.6, 0.7, 1.3, 0.9, 2.6, 1.1, 0.8, 1.7, 1.6, 1.6, 1.2, -2.2, 0.5, 1.3, 1.8, 1.5, 1.5, 1.1, 1.5, 1.1, 0.9, 0.8, 0.0, 0.4, 0.9, 1.1, 0.9, 0.7, 0.0, 1.5, 0.6, 0.3, 0.3, -0.5, 0.2, 0.1, -1.1, -1.5, -1.0, -0.5, -0.3, -0.4, -0.6, -0.6, 0.3, 1.1, 0.5, 0.5, 0.6, 0.5, 0.5, -0.1, 0.8, 0.3, 0.2, 0.4, -0.5, -9.7, 6.3, 3.2, 0.7, 0.5, 1.2, 1.4, 0.8, 1.2, 1.2, 0.4, 0.6, 0.8, 0.4, 0.7, 1.7, 0.9, 0.8, 0.1, 0.3, 0.6, 0.3, 0.7, 0.5], "hist_tri_ano_anterior": [2.7, 3.7, 3.2, -0.3, 1.9, 2.2, 1.3, 4.7, 1.4, 1.9, 1.8, 0.7, 2.8, 1.7, 0.9, 2.0, 3.1, 3.3, 4.3, 4.5, 2.4, 3.2, 1.7, 1.0, 2.9, 2.5, 3.4, 3.6, 1.8, 0.9, 0.5, 0.8, 3.3, 5.6, 5.2, 5.8, 4.5, 4.2, 3.5, 2.5, 4.6, 3.9, 4.4, 4.5, 5.7, 6.0, 5.4, 6.3, 5.3, 5.8, 6.2, 2.1, 1.0, 0.7, 1.4, 5.1, 6.2, 6.0, 5.7, 5.3, 4.7, 4.3, 2.8, 2.1, 2.2, 2.4, 3.3, 3.7, 2.8, 3.1, 2.7, 2.4, 2.8, 0.7, 0.4, 0.2, -1.2, -2.2, -3.4, -4.0, -3.2, -2.1, -1.6, -1.9, -1.2, 0.3, 1.5, 2.5, 2.7, 2.0, 2.1, 1.6, 1.6, 1.3, 1.2, 1.9, 0.3, -9.8, -4.1, -1.4, -0.5, 10.8, 5.8, 3.7, 3.7, 4.7, 5.0, 3.6, 3.5, 3.2, 2.3, 2.2, 3.5, 3.8, 4.3, 3.5, 2.1, 1.9, 1.3, 2.0, 2.1], "hist_acum_4tri": [5.2, 5.4, 4.0, 2.3, 2.1, 1.8, 1.3, 2.5, 2.4, 2.3, 2.4, 1.4, 1.8, 1.7, 1.5, 1.8, 1.9, 2.3, 3.2, 3.8, 3.7, 3.6, 3.0, 2.1, 2.2, 2.0, 2.4, 3.1, 2.8, 2.4, 1.7, 1.0, 1.4, 2.5, 3.7, 5.0, 5.3, 5.0, 4.5, 3.7, 3.7, 3.6, 3.8, 4.3, 4.6, 5.1, 5.4, 5.8, 5.7, 5.7, 5.9, 4.8, 3.8, 2.5, 1.3, 2.1, 3.3, 4.7, 5.8, 5.8, 5.4, 5.0, 4.3, 3.5, 2.8, 2.4, 2.5, 2.9, 3.0, 3.2, 3.1, 2.8, 2.8, 2.1, 1.6, 1.0, 0.0, -0.7, -1.7, -2.7, -3.2, -3.2, -2.8, -2.2, -1.7, -1.1, -0.3, 0.8, 1.7, 2.2, 2.3, 2.1, 1.8, 1.6, 1.4, 1.5, 1.2, -1.6, -2.9, -3.7, -3.9, 0.9, 3.4, 4.8, 5.9, 4.5, 4.3, 4.3, 4.2, 3.8, 3.1, 2.8, 2.8, 3.0, 3.5, 3.8, 3.4, 2.9, 2.2, 1.8, 1.8], "hist_acum_ano": [2.7, 3.2, 3.2, 2.3, 1.9, 2.1, 1.8, 2.5, 1.4, 1.6, 1.7, 1.4, 2.8, 2.2, 1.8, 1.8, 3.1, 3.2, 3.6, 3.8, 2.4, 2.8, 2.4, 2.1, 2.9, 2.7, 2.9, 3.1, 1.8, 1.4, 1.0, 1.0, 3.3, 4.5, 4.7, 5.0, 4.5, 4.4, 4.1, 3.7, 4.6, 4.2, 4.3, 4.3, 5.7, 5.8, 5.7, 5.8, 5.3, 5.5, 5.8, 4.8, 1.0, 0.8, 1.0, 2.1, 6.2, 6.1, 6.0, 5.8, 4.7, 4.5, 3.9, 3.5, 2.2, 2.3, 2.6, 2.9, 2.8, 2.9, 2.9, 2.8, 2.8, 1.7, 1.3, 1.0, -1.2, -1.7, -2.3, -2.7, -3.2, -2.7, -2.3, -2.2, -1.2, -0.5, 0.2, 0.8, 2.7, 2.4, 2.3, 2.1, 1.6, 1.5, 1.4, 1.5, 0.3, -4.8, -4.5, -3.7, -0.5, 4.9, 5.2, 4.8, 3.7, 4.2, 4.5, 4.3, 3.5, 3.3, 3.0, 2.8, 3.5, 3.7, 3.9, 3.8, 2.1, 2.0, 1.8, 1.8, 2.1]}, {"nome": "Transporte, armazenagem e correio", "grupo": "OFERTA", "nivel": "SUBSETOR", "hist_indice": [96.93, 102.96, 113.86, 108.72, 97.93, 111.54, 118.86, 120.07, 100.68, 113.3, 121.41, 116.07, 98.64, 103.71, 113.16, 117.86, 105.0, 114.0, 119.57, 119.62, 105.52, 113.5, 119.47, 120.75, 110.38, 118.5, 125.35, 123.17, 104.35, 115.15, 122.76, 124.42, 114.84, 122.54, 126.01, 128.72, 120.9, 128.52, 128.79, 131.65, 125.68, 129.51, 131.88, 135.44, 129.62, 135.82, 138.21, 145.38, 141.0, 150.3, 153.53, 145.8, 131.08, 137.36, 145.22, 151.16, 148.21, 155.6, 161.42, 162.8, 158.07, 162.85, 166.78, 167.2, 158.07, 163.12, 175.57, 171.5, 159.23, 173.17, 178.57, 174.86, 167.21, 169.81, 180.92, 178.13, 163.42, 164.43, 172.05, 166.06, 153.52, 157.44, 161.56, 156.24, 151.25, 156.56, 164.91, 162.17, 155.44, 158.33, 169.62, 165.12, 158.0, 159.83, 167.89, 163.18, 152.23, 122.59, 142.21, 149.47, 146.38, 147.41, 153.91, 155.38, 154.92, 160.87, 168.47, 167.47, 162.9, 168.26, 170.71, 165.69, 163.18, 169.72, 174.91, 172.4, 164.79, 171.99, 182.34, 175.36, 165.91], "hist_tri_anterior": [null, -1.5, 3.1, -3.6, 4.9, 2.9, 0.6, 2.0, -3.7, 3.8, 0.4, -4.0, -2.0, -3.0, 2.1, 4.6, 1.1, 1.5, -0.4, 0.3, -0.9, 0.4, 0.4, 0.8, 3.6, -1.5, 2.0, -1.5, -5.4, 2.9, 2.7, 1.4, 0.5, 1.4, 0.2, 1.6, 2.5, -0.4, -0.9, 1.8, 1.5, -0.8, 0.7, 1.7, 1.4, 1.1, 0.4, 4.0, 3.4, 2.0, 0.7, -5.3, -4.0, 0.7, 3.0, 4.2, 4.0, 1.7, 0.8, 1.2, 2.7, 0.1, -1.0, 1.3, -0.9, 1.0, 3.7, -1.5, -1.0, 4.5, -1.0, -0.5, 1.2, -0.9, 1.3, 0.3, -2.8, -1.9, -0.7, -1.5, -1.9, -0.8, -2.2, -0.6, 1.5, 1.4, 0.5, 0.6, 0.4, -0.9, 3.1, -1.1, 0.0, -0.3, 0.4, -1.2, -3.3, -19.8, 10.5, 6.8, 2.2, -0.9, 0.5, 2.4, 3.6, 1.9, 1.4, 1.2, 0.3, 1.3, -1.3, -1.2, 2.3, 0.5, 0.2, 0.7, 0.1, 1.0, 2.1, -1.5, -0.7], "hist_tri_ano_anterior": [4.9, 6.7, 7.9, 3.0, 1.0, 8.3, 4.4, 10.4, 2.8, 1.6, 2.1, -3.3, -2.0, -8.5, -6.8, 1.5, 6.4, 9.9, 5.7, 1.5, 0.5, -0.4, -0.1, 0.9, 4.6, 4.4, 4.9, 2.0, -5.5, -2.8, -2.1, 1.0, 10.0, 6.4, 2.6, 3.5, 5.3, 4.9, 2.2, 2.3, 4.0, 0.8, 2.4, 2.9, 3.1, 4.9, 4.8, 7.3, 8.8, 10.7, 11.1, 0.3, -7.0, -8.6, -5.4, 3.7, 13.1, 13.3, 11.2, 7.7, 6.6, 4.7, 3.3, 2.7, 0.0, 0.2, 5.3, 2.6, 0.7, 6.2, 1.7, 2.0, 5.0, -1.9, 1.3, 1.9, -2.3, -3.2, -4.9, -6.8, -6.1, -4.2, -6.1, -5.9, -1.5, -0.6, 2.1, 3.8, 2.8, 1.1, 2.9, 1.8, 1.6, 0.9, -1.0, -1.2, -3.7, -23.3, -15.3, -8.4, -3.8, 20.2, 8.2, 4.0, 5.8, 9.1, 9.5, 7.8, 5.2, 4.6, 1.3, -1.1, 0.2, 0.9, 2.5, 4.1, 1.0, 1.3, 4.2, 1.7, 0.7], "hist_acum_4tri": [9.4, 8.8, 6.8, 5.6, 4.7, 5.1, 4.2, 6.1, 6.5, 4.8, 4.2, 0.7, -0.4, -2.9, -5.2, -4.0, -2.2, 2.3, 5.8, 5.7, 4.3, 1.8, 0.4, 0.2, 1.2, 2.4, 3.7, 4.0, 1.6, -0.2, -2.0, -2.2, 1.2, 3.5, 4.8, 5.4, 4.4, 4.0, 3.9, 3.6, 3.3, 2.3, 2.3, 2.5, 2.3, 3.3, 3.9, 5.1, 6.4, 7.9, 9.5, 7.6, 3.6, -1.2, -5.2, -4.4, 0.2, 5.7, 10.2, 11.2, 9.6, 7.5, 5.5, 4.3, 2.7, 1.6, 2.1, 2.0, 2.2, 3.7, 2.8, 2.6, 3.6, 1.6, 1.5, 1.5, -0.2, -0.5, -2.1, -4.3, -5.2, -5.5, -5.8, -5.6, -4.5, -3.6, -1.5, 1.0, 2.0, 2.4, 2.6, 2.1, 1.9, 1.8, 0.8, 0.1, -1.2, -7.2, -10.9, -12.7, -12.8, -3.4, 2.9, 6.5, 9.1, 6.8, 7.1, 8.1, 7.9, 6.7, 4.6, 2.4, 1.2, 0.3, 0.6, 1.9, 2.1, 2.2, 2.7, 2.1, 2.0], "hist_acum_ano": [4.9, 5.8, 6.5, 5.6, 1.0, 4.8, 4.6, 6.1, 2.8, 2.2, 2.2, 0.7, -2.0, -5.4, -5.9, -4.0, 6.4, 8.2, 7.3, 5.7, 0.5, 0.0, 0.0, 0.2, 4.6, 4.5, 4.6, 4.0, -5.5, -4.1, -3.4, -2.2, 10.0, 8.1, 6.2, 5.4, 5.3, 5.1, 4.1, 3.6, 4.0, 2.3, 2.3, 2.5, 3.1, 4.0, 4.3, 5.1, 8.8, 9.7, 10.2, 7.6, -7.0, -7.8, -7.0, -4.4, 13.1, 13.2, 12.5, 11.2, 6.6, 5.6, 4.8, 4.3, 0.0, 0.1, 1.9, 2.0, 0.7, 3.5, 2.9, 2.6, 5.0, 1.4, 1.4, 1.5, -2.3, -2.7, -3.5, -4.3, -6.1, -5.1, -5.5, -5.6, -1.5, -1.0, 0.0, 1.0, 2.8, 1.9, 2.3, 2.1, 1.6, 1.3, 0.5, 0.1, -3.7, -13.5, -14.1, -12.7, -3.8, 6.9, 7.4, 6.5, 5.8, 7.5, 8.2, 8.1, 5.2, 4.9, 3.6, 2.4, 0.2, 0.5, 1.2, 1.9, 1.0, 1.2, 2.2, 2.1, 0.7]}, {"nome": "Valor adicionado a preços básicos", "grupo": "AGREGADO", "nivel": "TOTAL", "hist_indice": [97.33, 100.14, 107.47, 102.97, 99.84, 103.98, 108.45, 107.52, 100.74, 106.0, 109.3, 106.37, 102.36, 106.1, 109.2, 108.81, 106.03, 109.77, 113.8, 113.63, 109.07, 112.51, 114.73, 113.63, 110.86, 115.59, 119.9, 119.68, 113.58, 116.81, 121.03, 120.33, 118.2, 124.07, 128.56, 127.61, 123.2, 129.42, 130.93, 129.91, 127.84, 131.77, 136.45, 136.33, 134.37, 140.2, 144.3, 144.4, 142.16, 148.52, 153.37, 145.55, 138.92, 145.51, 151.7, 152.9, 150.68, 157.19, 161.38, 160.88, 158.08, 163.97, 166.86, 164.8, 160.41, 165.2, 170.73, 167.91, 164.69, 171.54, 174.95, 172.18, 170.26, 170.85, 173.86, 171.54, 167.75, 166.62, 167.22, 163.29, 160.2, 162.03, 163.57, 159.8, 160.67, 163.36, 166.02, 163.64, 163.44, 166.0, 169.46, 166.27, 164.79, 167.45, 170.8, 168.64, 165.36, 151.26, 165.9, 167.78, 167.98, 169.08, 172.42, 170.33, 170.83, 175.12, 180.19, 175.01, 178.56, 182.04, 184.7, 179.59, 182.51, 187.74, 191.66, 185.35, 188.39, 192.48, 195.28, 188.95, 191.83], "hist_tri_anterior": [null, 0.9, 3.7, -2.4, 2.0, 0.2, 1.2, 0.9, -1.8, 1.8, -0.1, -1.0, 0.9, 0.2, -0.1, 1.2, 0.9, 1.3, 1.2, 1.3, -0.1, 0.0, -0.3, 0.1, 2.6, 0.0, 1.5, 1.2, -0.7, -0.7, 1.2, 0.8, 1.4, 2.7, 1.3, 0.7, 1.0, 0.9, -0.7, 1.1, 1.7, 0.1, 1.7, 1.4, 1.7, 1.4, 1.2, 1.2, 1.2, 1.9, 1.5, -3.7, -1.2, 1.7, 2.2, 2.4, 1.8, 1.3, 0.7, 1.3, 1.2, 1.0, -0.1, 0.8, -1.7, 1.8, 1.8, -0.2, 0.6, 1.4, 0.5, 0.2, 0.7, -1.4, 0.0, 0.4, -0.7, -2.2, -1.4, -0.6, -1.4, 0.3, -0.5, -0.2, 1.1, 0.7, 0.2, 0.5, 0.6, 0.0, 0.9, -0.2, 0.1, 0.4, 0.1, 1.0, -2.3, -8.5, 7.7, 3.6, 0.8, -0.6, 0.2, 1.4, 0.7, 1.1, 1.2, 0.3, 1.5, 0.7, 0.2, 0.4, 0.3, 1.7, 1.0, 0.1, 1.3, 0.4, 0.1, 0.2, 1.0], "hist_tri_ano_anterior": [0.3, 1.7, 5.1, 0.7, 2.6, 3.8, 0.9, 4.4, 0.9, 1.9, 0.8, -1.1, 1.6, 0.1, -0.1, 2.3, 3.6, 3.5, 4.2, 4.4, 2.9, 2.5, 0.8, 0.0, 1.6, 2.7, 4.5, 5.3, 2.4, 1.1, 0.9, 0.5, 4.1, 6.2, 6.2, 6.0, 4.2, 4.3, 1.8, 1.8, 3.8, 1.8, 4.2, 4.9, 5.1, 6.4, 5.8, 5.9, 5.8, 5.9, 6.3, 0.8, -2.3, -2.0, -1.1, 5.0, 8.5, 8.0, 6.4, 5.2, 4.9, 4.3, 3.4, 2.4, 1.5, 0.8, 2.3, 1.9, 2.7, 3.8, 2.5, 2.5, 3.4, -0.4, -0.6, -0.4, -1.5, -2.5, -3.8, -4.8, -4.5, -2.8, -2.2, -2.1, 0.3, 0.8, 1.5, 2.4, 1.7, 1.6, 2.1, 1.6, 0.8, 0.9, 0.8, 1.4, 0.3, -9.7, -2.9, -0.5, 1.6, 11.8, 3.9, 1.5, 1.7, 3.6, 4.5, 2.7, 4.5, 4.0, 2.5, 2.6, 2.2, 3.1, 3.8, 3.2, 3.2, 2.5, 1.9, 1.9, 1.8], "hist_acum_4tri": [3.1, 2.8, 2.6, 2.0, 2.5, 3.0, 2.0, 2.9, 2.5, 2.0, 2.0, 0.6, 0.8, 0.3, 0.1, 1.0, 1.4, 2.3, 3.4, 3.9, 3.7, 3.5, 2.6, 1.5, 1.2, 1.3, 2.2, 3.6, 3.8, 3.3, 2.4, 1.2, 1.6, 2.9, 4.3, 5.7, 5.7, 5.2, 4.1, 3.0, 2.9, 2.3, 2.9, 3.7, 4.0, 5.2, 5.6, 5.8, 6.0, 5.9, 6.0, 4.7, 2.7, 0.7, -1.1, -0.1, 2.5, 5.0, 7.0, 7.0, 6.1, 5.2, 4.4, 3.7, 2.9, 2.0, 1.7, 1.6, 1.9, 2.7, 2.7, 2.9, 3.1, 2.0, 1.2, 0.5, -0.7, -1.2, -2.0, -3.2, -3.9, -4.0, -3.6, -2.9, -1.7, -0.8, 0.1, 1.3, 1.6, 1.8, 2.0, 1.8, 1.5, 1.3, 1.0, 1.0, 0.9, -1.8, -2.7, -3.2, -2.9, 2.2, 4.0, 4.5, 4.6, 2.7, 2.8, 3.1, 3.8, 3.9, 3.4, 3.4, 2.8, 2.6, 2.9, 3.1, 3.3, 3.2, 2.7, 2.4, 2.0], "hist_acum_ano": [0.3, 1.0, 2.4, 2.0, 2.6, 3.2, 2.4, 2.9, 0.9, 1.4, 1.2, 0.6, 1.6, 0.8, 0.5, 1.0, 3.6, 3.5, 3.8, 3.9, 2.9, 2.7, 2.0, 1.5, 1.6, 2.2, 3.0, 3.6, 2.4, 1.7, 1.5, 1.2, 4.1, 5.2, 5.5, 5.7, 4.2, 4.3, 3.4, 3.0, 3.8, 2.8, 3.3, 3.7, 5.1, 5.8, 5.8, 5.8, 5.8, 5.9, 6.0, 4.7, -2.3, -2.2, -1.8, -0.1, 8.5, 8.2, 7.6, 7.0, 4.9, 4.6, 4.2, 3.7, 1.5, 1.1, 1.5, 1.6, 2.7, 3.3, 3.0, 2.9, 3.4, 1.5, 0.7, 0.5, -1.5, -2.0, -2.6, -3.2, -4.5, -3.6, -3.1, -2.9, 0.3, 0.6, 0.9, 1.3, 1.7, 1.7, 1.8, 1.8, 0.8, 0.9, 0.8, 1.0, 0.3, -4.7, -4.1, -3.2, 1.6, 6.5, 5.6, 4.5, 1.7, 2.6, 3.3, 3.1, 4.5, 4.2, 3.6, 3.4, 2.2, 2.7, 3.0, 3.1, 3.2, 2.9, 2.5, 2.4, 1.8]}]};
+
+function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const COR = {
+  teal: getVar('--teal'), amber: getVar('--amber'), rose: getVar('--rose'),
+  violet: getVar('--violet'), green: getVar('--green'), red: getVar('--red'),
+  surface: getVar('--surface'), inkMuted: getVar('--ink-muted'),
+};
+const HUE_BASE = { teal: COR.teal, amber: COR.amber, rose: COR.rose, violet: COR.violet, green: COR.green };
+
+function fmtNum(v, casas=2) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}); }
+function fmtPct(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function trimestreLabel(p) {
+  const s = String(p);
+  return `${parseInt(s.slice(4), 10)}ºT/${s.slice(2,4)}`;
+}
+
+const METRICAS = [
+  { key: 'indice', label: 'Índice de volume', campo: 'hist_indice', fmt: v => fmtNum(v,2), hue: 'teal' },
+  { key: 'tri_anterior', label: 'Var. T/T-1', campo: 'hist_tri_anterior', fmt: v => fmtPct(v,1), hue: 'amber' },
+  { key: 'tri_ano_anterior', label: 'Var. T/T-4 (interanual)', campo: 'hist_tri_ano_anterior', fmt: v => fmtPct(v,1), hue: 'rose' },
+  { key: 'acum_4tri', label: 'Var. acum. 4 trimestres', campo: 'hist_acum_4tri', fmt: v => fmtPct(v,1), hue: 'violet' },
+  { key: 'acum_ano', label: 'Var. acum. no ano', campo: 'hist_acum_ano', fmt: v => fmtPct(v,1), hue: 'green' },
+];
+const setorPorNome = new Map(DADOS.setores.map(s => [s.nome, s]));
+
+// ---------- header ----------
+function renderHeader() {
+  document.getElementById('as-of-line').innerHTML =
+    `Trimestres <b>${trimestreLabel(DADOS.meta.trimestre_min)}</b> a <b>${trimestreLabel(DADOS.meta.trimestre_max)}</b> · ${DADOS.meta.total_trimestres} observações`;
+
+  const pib = setorPorNome.get('PIB a preços de mercado');
+  const n = DADOS.periodos.length;
+  const ultimoIdx = n - 1;
+  const kpiDef = [
+    { label: 'Índice de volume (atual)', campo: 'hist_indice', fmt: v => fmtNum(v,2), hue: 'teal', signed: false },
+    { label: 'Var. T/T-1', campo: 'hist_tri_anterior', fmt: v => fmtPct(v,1), hue: 'amber', signed: true },
+    { label: 'Var. T/T-4 (interanual)', campo: 'hist_tri_ano_anterior', fmt: v => fmtPct(v,1), hue: 'rose', signed: true },
+    { label: 'Var. acum. 4 tri', campo: 'hist_acum_4tri', fmt: v => fmtPct(v,1), hue: 'violet', signed: true },
+    { label: 'Var. acum. no ano', campo: 'hist_acum_ano', fmt: v => fmtPct(v,1), hue: 'green', signed: true },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpiDef.map(k => {
+    const v = pib[k.campo][ultimoIdx];
+    const cls = k.signed && v != null ? (v >= 0 ? 'up' : 'down') : '';
+    return `<div class="kpi" style="--kpi-hue:var(--${k.hue})">
+      <div class="label">${k.label}</div>
+      <div class="value ${cls}">${k.fmt(v)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- hero chart (PIB a preços de mercado) ----------
+const JANELAS = [
+  { key: '8', label: '2 anos' }, { key: '20', label: '5 anos' }, { key: '40', label: '10 anos' },
+  { key: '80', label: '20 anos' }, { key: 'tudo', label: 'Tudo' },
+];
+let metricaAtual = 'indice';
+let janelaAtual = '40';
+let heroLayout = null, heroSerie = null, heroCampo = null;
+
+function filtrarJanela(valores, periodos) {
+  if (janelaAtual === 'tudo') return { valores, periodos };
+  const n = parseInt(janelaAtual, 10);
+  return { valores: valores.slice(-n), periodos: periodos.slice(-n) };
+}
+
+function renderHero() {
+  const mDef = METRICAS.find(m => m.key === metricaAtual);
+  heroCampo = mDef.campo;
+  const pib = setorPorNome.get('PIB a preços de mercado');
+  const { valores, periodos } = filtrarJanela(pib[mDef.campo], DADOS.periodos);
+  heroSerie = valores;
+
+  document.getElementById('hero-legend').innerHTML =
+    `<span class="legend-swatch" style="background:var(--${mDef.hue})"></span>${mDef.label} — PIB a preços de mercado`;
+
+  const svg = document.getElementById('svg-hero');
+  const largura = svg.parentElement.clientWidth || 900, altura = 220;
+  svg.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svg.innerHTML = '';
+  const n = periodos.length;
+  const pontos = [];
+  for (let i = 0; i < n; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) { svg.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">dado insuficiente</text>'; return; }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const padL = 8, padR = 8;
+  const x = i => padL + (i/(Math.max(n-1,1))) * (largura - padL - padR);
+  const y = v => altura - 14 - ((v - min) / span) * (altura - 28);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', padL); gl.setAttribute('x2', largura - padR);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svg.appendChild(gl);
+  }
+  if (mDef.key !== 'indice') {
+    // linha de referencia no zero para metricas de variacao (diverging visual)
+    const zeroY = y(0);
+    if (zeroY >= 0 && zeroY <= altura) {
+      const zl = svgns('line');
+      zl.setAttribute('x1', padL); zl.setAttribute('x2', largura - padR);
+      zl.setAttribute('y1', zeroY); zl.setAttribute('y2', zeroY);
+      zl.setAttribute('stroke', COR.inkMuted); zl.setAttribute('stroke-width', 1);
+      svg.appendChild(zl);
+    }
+  }
+  const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', HUE_BASE[mDef.hue]);
+  lineEl.setAttribute('stroke-width','2.4'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svg.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 5);
+  dot.setAttribute('fill', HUE_BASE[mDef.hue]); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 2);
+  svg.appendChild(dot);
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line'); crosshair.id = 'hero-crosshair';
+  svg.appendChild(crosshair);
+
+  heroLayout = { x, y, largura, altura, periodos, valores };
+  const idxs = n <= 2 ? [0, n-1] : [0, Math.round((n-1)/2), n-1];
+  document.getElementById('hero-xticks').innerHTML = idxs.map(i => `<span>${trimestreLabel(periodos[i])}</span>`).join('');
+  renderHeroTable(mDef);
+
+  let ultimoIdxReal = -1;
+  for (let i = valores.length - 1; i >= 0; i--) if (valores[i] != null) { ultimoIdxReal = i; break; }
+  const btn = document.getElementById('hero-asof');
+  if (ultimoIdxReal >= 0) {
+    btn.textContent = `* dado mais recente: ${trimestreLabel(periodos[ultimoIdxReal])}`;
+    btn.onclick = () => mostrarHeroIndice(ultimoIdxReal);
+  }
+}
+
+function mostrarHeroIndice(idx) {
+  if (!heroLayout) return;
+  const mDef = METRICAS.find(m => m.key === metricaAtual);
+  const { x, y, periodos, valores } = heroLayout;
+  const v = valores[idx];
+  const tip = document.getElementById('hero-tip');
+  const crosshair = document.getElementById('hero-crosshair');
+  if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; return; }
+  const xi = x(idx);
+  crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+  tip.innerHTML = `<span class="t-name">${trimestreLabel(periodos[idx])}</span><div class="t-row"><span>${mDef.label}</span><span class="t-val">${mDef.fmt(v)}</span></div>`;
+  tip.style.opacity = 1;
+  const rect = document.getElementById('hero-catcher').getBoundingClientRect();
+  const xPix = xi / heroLayout.largura * (rect.width || heroLayout.largura);
+  let left = xPix + 12, top = 10;
+  if (left + 190 > (rect.width || heroLayout.largura)) left = xPix - 190 - 12;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+
+function setupHeroHover() {
+  const catcher = document.getElementById('hero-catcher');
+  catcher.addEventListener('pointermove', ev => {
+    if (!heroLayout) return;
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.round(frac * (heroLayout.periodos.length - 1));
+    mostrarHeroIndice(idx);
+  });
+  catcher.addEventListener('pointerleave', () => {
+    document.getElementById('hero-tip').style.opacity = 0;
+    document.getElementById('hero-crosshair').style.opacity = 0;
+  });
+}
+
+function renderHeroTable(mDef) {
+  const { periodos, valores } = heroLayout;
+  const rows = periodos.map((p,i) => `<tr><td>${trimestreLabel(p)}</td><td>${mDef.fmt(valores[i])}</td></tr>`).reverse().join('');
+  document.getElementById('hero-table').innerHTML = `<table class="datatable"><thead><tr><th>Trimestre</th><th>${mDef.label}</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderMetricPills() {
+  const wrap = document.getElementById('metric-pills');
+  wrap.innerHTML = METRICAS.map(m => `<button class="pill${m.key===metricaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    metricaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderHero();
+  }));
+}
+function renderWindowPills() {
+  const wrap = document.getElementById('window-pills');
+  wrap.innerHTML = JANELAS.map(j => `<button class="pill${j.key===janelaAtual?' active':''}" data-key="${j.key}">${j.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    janelaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderHero();
+  }));
+}
+
+// ---------- mini-chart genérico (usado no drawer) ----------
+function renderMiniChart(svgEl, catcher, tip, periodos, valores, cor, fmt, titulo) {
+  const largura = 480, altura = 220;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+  const pontos = [];
+  for (let i = 0; i < periodos.length; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) {
+    svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)" font-size="13">dado insuficiente</text>';
+    if (catcher) catcher.style.display = 'none';
+    return null;
+  }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const n = periodos.length;
+  const x = i => 10 + i / (n - 1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+  const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', cor);
+  lineEl.setAttribute('stroke-width', '2.4'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svgEl.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 5);
+  dot.setAttribute('fill', cor); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 1.8);
+  svgEl.appendChild(dot);
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+  const hoverDot = svgns('circle');
+  hoverDot.setAttribute('r', 4.5); hoverDot.setAttribute('fill', cor);
+  hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.8);
+  hoverDot.style.opacity = 0;
+  svgEl.appendChild(hoverDot);
+
+  function mostrarIndice(idx) {
+    const v = valores[idx];
+    if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; return; }
+    const xi = x(idx), yi = y(v);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    hoverDot.setAttribute('cx', xi); hoverDot.setAttribute('cy', yi); hoverDot.style.opacity = 1;
+    tip.innerHTML = `<span class="t-name">${trimestreLabel(periodos[idx])}</span><div class="t-row"><span>${titulo}</span><span class="t-val">${fmt(v)}</span></div>`;
+    tip.style.opacity = 1;
+    const rect = catcher.getBoundingClientRect();
+    const xPix = xi / largura * (rect.width || largura);
+    let left = xPix + 10;
+    if (left + 150 > (rect.width || largura)) left = xPix - 150 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '-4px';
+  }
+  if (!catcher) return mostrarIndice;
+  catcher.style.display = 'block';
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    mostrarIndice(Math.min(n-1, Math.max(0, Math.round(frac * (n-1)))));
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; };
+  return mostrarIndice;
+}
+
+// ---------- drawer de detalhe do setor ----------
+function abrirDetalheSetor(nome) {
+  const s = setorPorNome.get(nome);
+  if (!s) return;
+  document.getElementById('drawer-empty').style.display = 'none';
+  const body = document.getElementById('drawer-body');
+  body.classList.add('open');
+
+  const blocos = METRICAS.map(mDef => {
+    const valores = s[mDef.campo];
+    const periodos = DADOS.periodos;
+    let ultimoIdx = -1;
+    for (let i = valores.length - 1; i >= 0; i--) if (valores[i] != null) { ultimoIdx = i; break; }
+    const uid = mDef.key + '_' + Math.random().toString(36).slice(2,8);
+    const idxs = periodos.length <= 2 ? [0, periodos.length-1] : [0, Math.round((periodos.length-1)/2), periodos.length-1];
+    const ticks = idxs.map(i => `<span>${trimestreLabel(periodos[i])}</span>`).join('');
+    const asof = ultimoIdx >= 0
+      ? `<button class="hc-asof" data-uid="${uid}">* dado mais recente: ${trimestreLabel(periodos[ultimoIdx])}</button>` : '';
+    const html = `<div class="hist-card">
+      <div class="hc-title">${mDef.label}</div>
+      <div class="hc-value">${ultimoIdx>=0 ? mDef.fmt(valores[ultimoIdx]) : '—'}</div>
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="mc_${uid}"></svg>
+        <div class="mc-catcher" id="cat_${uid}"></div>
+        <div class="hover-tip mc-tip" id="tip_${uid}"></div>
+      </div>
+      <div class="x-ticks">${ticks}</div>
+      ${asof}
+    </div>`;
+    return { html, uid, periodos, valores, fmt: mDef.fmt, titulo: mDef.label, cor: HUE_BASE[mDef.hue], ultimoIdx };
+  });
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${s.nome}</h2>
+      <span class="badge">${s.grupo}</span>
+      ${s.nivel === 'GRANDE_GRUPO' ? '<span class="badge">Grande grupo</span>' : ''}
+    </div>
+    <div class="hist-grid">${blocos.map(b => b.html).join('')}</div>`;
+
+  blocos.forEach(b => {
+    const svgEl = document.getElementById('mc_' + b.uid);
+    const catcher = document.getElementById('cat_' + b.uid);
+    const tip = document.getElementById('tip_' + b.uid);
+    const mostrarIndice = renderMiniChart(svgEl, catcher, tip, b.periodos, b.valores, b.cor, b.fmt, b.titulo);
+    const botao = document.querySelector(`.hc-asof[data-uid="${b.uid}"]`);
+    if (botao && mostrarIndice) botao.addEventListener('click', () => mostrarIndice(b.ultimoIdx));
+  });
+  document.getElementById('drawer-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- ranking (oferta / demanda) ----------
+function ultimoValorValido(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i];
+  return null;
+}
+function renderRanking(containerId, grupo) {
+  const dados = DADOS.setores
+    .filter(s => s.grupo === grupo)
+    .map(s => ({ nome: s.nome, nivel: s.nivel, valor: ultimoValorValido(s.hist_tri_ano_anterior) }))
+    .filter(d => d.valor != null)
+    .sort((a,b) => b.valor - a.valor);
+  const max = Math.max(1, ...dados.map(d => Math.abs(d.valor)));
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = dados.map((d, i) => {
+    const pct = Math.abs(d.valor) / max * 100;
+    const up = d.valor >= 0;
+    const nivelClasse = d.nivel === 'GRANDE_GRUPO' || d.nivel === 'TOTAL' ? 'grande' : 'sub';
+    return `<div class="bar-row ${nivelClasse}">
+      <span class="b-label" data-nome="${d.nome}"><span class="b-rank">#${i+1}</span>${d.nome}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct/2}%; background:${up?'var(--green)':'var(--red)'}; ${up ? 'left:50%;' : `left:${50-pct/2}%;`}"></div>
+      </div>
+      <span class="b-value ${up?'up':'down'}">${up?'↑':'↓'} ${fmtPct(Math.abs(d.valor),1)}</span>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-nome]').forEach(el => el.addEventListener('click', () => abrirDetalheSetor(el.dataset.nome)));
+}
+
+// ---------- comparação de setores ----------
+const COMPARE_COLORS = [HUE_BASE.teal, HUE_BASE.amber, HUE_BASE.rose, HUE_BASE.violet, HUE_BASE.green];
+let comparativo = [];
+let compMetricaAtual = 'indice';
+
+function popularSelectComparacao() {
+  const sel = document.getElementById('comp-select');
+  const oferta = DADOS.setores.filter(s => s.grupo === 'OFERTA').map(s => s.nome);
+  const demanda = DADOS.setores.filter(s => s.grupo === 'DEMANDA').map(s => s.nome);
+  const agregado = DADOS.setores.filter(s => s.grupo === 'AGREGADO').map(s => s.nome);
+  const opt = arr => arr.map(n => `<option value="${n}">${n}</option>`).join('');
+  sel.innerHTML = `<optgroup label="Agregados">${opt(agregado)}</optgroup>
+    <optgroup label="Oferta (VAB)">${opt(oferta)}</optgroup>
+    <optgroup label="Demanda">${opt(demanda)}</optgroup>`;
+  document.getElementById('comp-add-btn').addEventListener('click', () => adicionarComparativo(sel.value));
+}
+function adicionarComparativo(nome) {
+  if (!nome || comparativo.includes(nome) || comparativo.length >= 5) return;
+  comparativo.push(nome);
+  renderComparacaoChips();
+  renderComparacaoChart();
+}
+function renderComparacaoChips() {
+  const cont = document.getElementById('comp-chips');
+  cont.innerHTML = comparativo.length
+    ? comparativo.map((nome, i) => `<span class="comp-chip" style="--chip-cor:${COMPARE_COLORS[i]}">${nome}<button data-nome="${nome}" aria-label="Remover">×</button></span>`).join('')
+    : '<span class="drawer-empty">Nenhum setor selecionado — escolha acima (até 5).</span>';
+  cont.querySelectorAll('button[data-nome]').forEach(b => b.addEventListener('click', () => {
+    comparativo = comparativo.filter(n => n !== b.dataset.nome);
+    renderComparacaoChips(); renderComparacaoChart();
+  }));
+}
+function renderCompMetricPills() {
+  const wrap = document.getElementById('comp-metric-pills');
+  wrap.innerHTML = METRICAS.map(m => `<button class="pill${m.key===compMetricaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    compMetricaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderComparacaoChart();
+  }));
+}
+function renderComparacaoChart() {
+  const wrap = document.getElementById('comp-chart-wrap');
+  if (!comparativo.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="pane-wrap">
+    <svg class="chart" id="svg-comp" style="height:240px;"></svg>
+    <div class="hover-catcher" id="comp-catcher"></div>
+    <div class="hover-tip" id="comp-tip"></div>
+  </div><div class="x-ticks" id="comp-xticks"></div>`;
+
+  const mDef = METRICAS.find(m => m.key === compMetricaAtual);
+  const svgEl = document.getElementById('svg-comp');
+  const catcher = document.getElementById('comp-catcher');
+  const tip = document.getElementById('comp-tip');
+  const largura = svgEl.parentElement.clientWidth || 900, altura = 240;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+
+  const series = comparativo.map((nome, i) => ({ nome, cor: COMPARE_COLORS[i], valores: setorPorNome.get(nome)[mDef.campo] }));
+  const periodos = DADOS.periodos;
+  const n = periodos.length;
+  const todos = series.flatMap(s => s.valores.filter(v => v != null));
+  if (!todos.length) { svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">sem dado suficiente</text>'; return; }
+  const min = Math.min(...todos), max = Math.max(...todos);
+  const span = (max - min) || 1;
+  const x = i => 10 + i / Math.max(n-1,1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const hoverDots = [];
+  for (const s of series) {
+    const pontos = [];
+    for (let i = 0; i < n; i++) if (s.valores[i] != null) pontos.push([i, s.valores[i]]);
+    if (pontos.length >= 2) {
+      const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+      const lineEl = svgns('path');
+      lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', s.cor);
+      lineEl.setAttribute('stroke-width', '2.2'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+      svgEl.appendChild(lineEl);
+    }
+    const hoverDot = svgns('circle');
+    hoverDot.setAttribute('r', 4); hoverDot.setAttribute('fill', s.cor);
+    hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.6);
+    hoverDot.style.opacity = 0;
+    svgEl.appendChild(hoverDot);
+    hoverDots.push(hoverDot);
+  }
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+
+  const idxs = n <= 2 ? [0, n-1] : [0, Math.round((n-1)/2), n-1];
+  document.getElementById('comp-xticks').innerHTML = idxs.map(i => `<span>${trimestreLabel(periodos[i])}</span>`).join('');
+
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.min(n-1, Math.max(0, Math.round(frac * (n-1))));
+    const xi = x(idx);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    let linhas = '';
+    series.forEach((s, i) => {
+      const v = s.valores[idx];
+      hoverDots[i].style.opacity = v != null ? 1 : 0;
+      if (v != null) { hoverDots[i].setAttribute('cx', xi); hoverDots[i].setAttribute('cy', y(v)); }
+      linhas += `<div class="t-row"><span class="t-key"><i style="background:${s.cor}"></i>${s.nome}</span><span class="t-val">${v!=null?mDef.fmt(v):'—'}</span></div>`;
+    });
+    tip.innerHTML = `<span class="t-name">${trimestreLabel(periodos[idx])}</span>${linhas}`;
+    tip.style.opacity = 1;
+    const xPix = xi / largura * rect.width;
+    let left = xPix + 10;
+    if (left + 220 > rect.width) left = xPix - 220 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '4px';
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDots.forEach(h => h.style.opacity = 0); };
+}
+
+// ---------- table toggle ----------
+function setupTableToggle() {
+  document.getElementById('hero-table-btn').addEventListener('click', e => {
+    const t = document.getElementById('hero-table');
+    t.classList.toggle('open');
+    e.target.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+  });
+}
+
+// ---------- init ----------
+function init() {
+  renderHeader();
+  renderMetricPills();
+  renderWindowPills();
+  renderHero();
+  setupHeroHover();
+  setupTableToggle();
+  renderRanking('bars-oferta', 'OFERTA');
+  renderRanking('bars-demanda', 'DEMANDA');
+  popularSelectComparacao();
+  renderComparacaoChips();
+  renderCompMetricPills();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { renderHero(); renderComparacaoChart(); }, 120); });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

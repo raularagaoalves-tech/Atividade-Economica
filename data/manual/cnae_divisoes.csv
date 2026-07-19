@@ -1,0 +1,88 @@
+divisao;secao;secao_nome;nome
+01;A;Agropecuária;Agricultura, pecuária e serviços relacionados
+02;A;Agropecuária;Produção florestal
+03;A;Agropecuária;Pesca e aquicultura
+05;B;Indústrias extrativas;Extração de carvão mineral
+06;B;Indústrias extrativas;Extração de petróleo e gás natural
+07;B;Indústrias extrativas;Extração de minerais metálicos
+08;B;Indústrias extrativas;Extração de minerais não-metálicos
+09;B;Indústrias extrativas;Atividades de apoio à extração de minerais
+10;C;Indústrias de transformação;Fabricação de produtos alimentícios
+11;C;Indústrias de transformação;Fabricação de bebidas
+12;C;Indústrias de transformação;Fabricação de produtos do fumo
+13;C;Indústrias de transformação;Fabricação de produtos têxteis
+14;C;Indústrias de transformação;Confecção de artigos do vestuário e acessórios
+15;C;Indústrias de transformação;Preparação de couros e fabricação de artefatos de couro, artigos para viagem e calçados
+16;C;Indústrias de transformação;Fabricação de produtos de madeira
+17;C;Indústrias de transformação;Fabricação de celulose, papel e produtos de papel
+18;C;Indústrias de transformação;Impressão e reprodução de gravações
+19;C;Indústrias de transformação;Fabricação de coque, de produtos derivados do petróleo e de biocombustíveis
+20;C;Indústrias de transformação;Fabricação de produtos químicos
+21;C;Indústrias de transformação;Fabricação de produtos farmoquímicos e farmacêuticos
+22;C;Indústrias de transformação;Fabricação de produtos de borracha e de material plástico
+23;C;Indústrias de transformação;Fabricação de produtos de minerais não-metálicos
+24;C;Indústrias de transformação;Metalurgia
+25;C;Indústrias de transformação;Fabricação de produtos de metal, exceto máquinas e equipamentos
+26;C;Indústrias de transformação;Fabricação de equipamentos de informática, produtos eletrônicos e ópticos
+27;C;Indústrias de transformação;Fabricação de máquinas, aparelhos e materiais elétricos
+28;C;Indústrias de transformação;Fabricação de máquinas e equipamentos
+29;C;Indústrias de transformação;Fabricação de veículos automotores, reboques e carrocerias
+30;C;Indústrias de transformação;Fabricação de outros equipamentos de transporte, exceto veículos automotores
+31;C;Indústrias de transformação;Fabricação de móveis
+32;C;Indústrias de transformação;Fabricação de produtos diversos
+33;C;Indústrias de transformação;Manutenção, reparação e instalação de máquinas e equipamentos
+35;D;Eletricidade e gás;Eletricidade, gás e outras utilidades
+36;E;Água, esgoto e resíduos;Captação, tratamento e distribuição de água
+37;E;Água, esgoto e resíduos;Esgoto e atividades relacionadas
+38;E;Água, esgoto e resíduos;"Coleta, tratamento e disposição de resíduos; recuperação de materiais"
+39;E;Água, esgoto e resíduos;Descontaminação e outros serviços de gestão de resíduos
+41;F;Construção;Construção de edifícios
+42;F;Construção;Obras de infraestrutura
+43;F;Construção;Serviços especializados para construção
+45;G;Comércio;Comércio e reparação de veículos automotores e motocicletas
+46;G;Comércio;Comércio por atacado, exceto veículos automotores e motocicletas
+47;G;Comércio;Comércio varejista
+49;H;Transporte e armazenagem;Transporte terrestre
+50;H;Transporte e armazenagem;Transporte aquaviário
+51;H;Transporte e armazenagem;Transporte aéreo
+52;H;Transporte e armazenagem;Armazenamento e atividades auxiliares dos transportes
+53;H;Transporte e armazenagem;Correio e outras atividades de entrega
+55;I;Alojamento e alimentação;Alojamento
+56;I;Alojamento e alimentação;Alimentação
+58;J;Informação e comunicação;Edição e edição integrada à impressão
+59;J;Informação e comunicação;Atividades cinematográficas, produção de vídeos e de programas de televisão, gravação de som e edição de música
+60;J;Informação e comunicação;Atividades de rádio e de televisão
+61;J;Informação e comunicação;Telecomunicações
+62;J;Informação e comunicação;Atividades dos serviços de tecnologia da informação
+63;J;Informação e comunicação;Atividades de prestação de serviços de informação
+64;K;Atividades financeiras;Atividades de serviços financeiros
+65;K;Atividades financeiras;Seguros, resseguros, previdência complementar e planos de saúde
+66;K;Atividades financeiras;Atividades auxiliares dos serviços financeiros, seguros, previdência complementar e planos de saúde
+68;L;Atividades imobiliárias;Atividades imobiliárias
+69;M;Atividades profissionais e técnicas;Atividades jurídicas, de contabilidade e de auditoria
+70;M;Atividades profissionais e técnicas;Atividades de sedes de empresas e de consultoria em gestão empresarial
+71;M;Atividades profissionais e técnicas;"Serviços de arquitetura e engenharia; testes e análises técnicas"
+72;M;Atividades profissionais e técnicas;Pesquisa e desenvolvimento científico
+73;M;Atividades profissionais e técnicas;Publicidade e pesquisa de mercado
+74;M;Atividades profissionais e técnicas;Outras atividades profissionais, científicas e técnicas
+75;M;Atividades profissionais e técnicas;Atividades veterinárias
+77;N;Atividades administrativas;Aluguéis não-imobiliários e gestão de ativos intangíveis não-financeiros
+78;N;Atividades administrativas;Seleção, agenciamento e locação de mão-de-obra
+79;N;Atividades administrativas;Agências de viagens, operadores turísticos e serviços de reservas
+80;N;Atividades administrativas;Atividades de vigilância, segurança e investigação
+81;N;Atividades administrativas;Serviços para edifícios e atividades paisagísticas
+82;N;Atividades administrativas;Serviços de escritório, de apoio administrativo e outros serviços prestados às empresas
+84;O;Administração pública;Administração pública, defesa e seguridade social
+85;P;Educação;Educação
+86;Q;Saúde e serviços sociais;Atividades de atenção à saúde humana
+87;Q;Saúde e serviços sociais;Atividades de atenção à saúde humana integradas com assistência social
+88;Q;Saúde e serviços sociais;Serviços de assistência social sem alojamento
+90;R;Artes, cultura, esporte e recreação;Atividades artísticas, criativas e de espetáculos
+91;R;Artes, cultura, esporte e recreação;Atividades ligadas ao patrimônio cultural e ambiental
+92;R;Artes, cultura, esporte e recreação;Atividades de exploração de jogos de azar e apostas
+93;R;Artes, cultura, esporte e recreação;Atividades esportivas e de recreação e lazer
+94;S;Outras atividades de serviços;Atividades de organizações associativas
+95;S;Outras atividades de serviços;Reparação e manutenção de equipamentos de informática e comunicação e de objetos pessoais e domésticos
+96;S;Outras atividades de serviços;Outras atividades de serviços pessoais
+97;T;Serviços domésticos;Serviços domésticos
+99;U;Organismos internacionais;Organismos internacionais e outras instituições extraterritoriais

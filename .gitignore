@@ -1,0 +1,21 @@
+# Dados brutos e banco — grandes, derivados (rebaixados/reconstruídos a
+# cada atualizar.bat), e não devem entrar num diretório sincronizado/git
+# (ver nota em src/caminhos.py). Em produção ficam fora do projeto via
+# ATIV_DADOS_DIR; isto aqui é só defensivo para uso local sem essa variável.
+data/db/
+data/raw/
+
+logs/
+
+# Config local do Claude Code (preview server etc.) — não é parte do projeto
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# SO
+.DS_Store
+Thumbs.db

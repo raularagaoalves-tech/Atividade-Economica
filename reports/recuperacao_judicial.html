@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Atividade Econômica — Recuperação Judicial</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:        #070a12;
+    --surface:     #10141f;
+    --surface-2:   #161d2e;
+    --line:        #232b40;
+    --line-soft:   #1a2233;
+    --ink:         #eef2f9;
+    --ink-soft:    #8ea0bd;
+    --ink-muted:   #7583a0;
+
+    --teal:        #0d9488;
+    --teal-lite:   #5eead4;
+    --amber:       #d97706;
+    --amber-lite:  #fcd34d;
+    --rose:        #f43f5e;
+    --rose-lite:   #fda4af;
+    --violet:      #8b5cf6;
+    --violet-lite: #ddd6fe;
+    --green:       #059669;
+    --green-lite:  #6ee7b7;
+    --red:         #dc2626;
+
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page); color: var(--ink); font-family: var(--sans);
+    font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; position: relative; overflow-x: hidden;
+  }
+  ::selection { background: rgba(13,148,136,.14); color: var(--ink); }
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(13,148,136,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,148,136,.055) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+    animation: drift 34s linear infinite;
+  }
+  @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 48px 96px, 48px 96px; } }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .32;
+    width: 46vw; height: 46vw; border-radius: 50%; top: -18vw; right: -12vw;
+    background: radial-gradient(circle, rgba(244,63,94,.5), transparent 70%);
+  }
+  @media (prefers-reduced-motion: reduce) { .bg-grid { animation: none; } }
+  main { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 2.25rem 2rem 5rem; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap;
+    gap: .75rem 1.5rem; padding-bottom: 1.6rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: .7rem; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--rose);
+    box-shadow: 0 0 0 3px rgba(244,63,94,.14), 0 0 14px 2px rgba(244,63,94,.65);
+    display: inline-block; transform: translateY(-1px); animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .brand .dot { animation: none; } }
+  h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 .3rem; }
+  .as-of { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); }
+  .as-of b { color: var(--ink); font-weight: 600; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+  @media (max-width: 780px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-left: 3px solid var(--kpi-hue, var(--rose));
+    border-radius: var(--radius); padding: 1.05rem 1.15rem;
+  }
+  .kpi .label { font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .45rem; }
+  .kpi .value { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; color: var(--ink); }
+  .kpi .caption { font-family: var(--mono); font-size: .74rem; color: var(--ink-soft); margin-top: .3rem; }
+  .kpi .caption .up { color: var(--green); } .kpi .caption .down { color: var(--red); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; margin-bottom: .9rem; }
+  .card-title { font-size: .95rem; font-weight: 700; color: var(--ink); margin: 0 0 .2rem; }
+  .card-sub { font-size: .78rem; color: var(--ink-muted); }
+
+  .pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); flex-wrap: wrap; }
+  .pill {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+    padding: .38rem .8rem; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active { background: var(--pill-hue, var(--rose)); color: #1a0508; }
+  .pill:focus-visible, .tbtn:focus-visible, button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+  .tbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    font-family: var(--sans); font-size: .72rem; font-weight: 600; padding: .35rem .7rem; border-radius: 8px; cursor: pointer;
+  }
+  .tbtn:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--line); stroke-width: 1; }
+  .crosshair-line { stroke: var(--ink-soft); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: 0; }
+  .hover-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .pane-wrap { position: relative; }
+  .x-ticks { display: flex; justify-content: space-between; margin: .3rem 2px 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-muted); }
+
+  .hover-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(11,15,26,.97); border: 1px solid var(--line); border-radius: 10px;
+    padding: .6rem .75rem; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+    box-shadow: 0 12px 28px -12px rgba(0,0,0,.7); opacity: 0; transition: opacity .1s;
+    min-width: 168px; white-space: nowrap;
+  }
+  .hover-tip .t-name { color: var(--ink); font-weight: 700; margin-bottom: .3rem; display: block; letter-spacing: .02em; }
+  .hover-tip .t-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .15rem; }
+  .hover-tip .t-val { color: var(--ink); font-weight: 700; }
+
+  .hc-asof { font-family: var(--mono); font-size: .68rem; color: var(--ink-muted); margin-top: .35rem; cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
+  .hc-asof:hover { color: var(--ink-soft); text-decoration: underline; }
+
+  .bar-row { display: grid; grid-template-columns: 170px 1fr 80px; align-items: center; gap: .6rem; padding: .32rem 0; }
+  .bar-row .b-label { font-size: .76rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .bar-row .b-label:hover { color: var(--ink); text-decoration: underline; }
+  .bar-row.hi .b-label { color: var(--ink); font-weight: 700; }
+  .b-rank { font-family: var(--mono); color: var(--ink-muted); font-size: .7rem; width: 26px; display: inline-block; }
+  .bar-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; overflow: visible; }
+  .bar-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .bar-row .b-value { font-family: var(--mono); font-size: .78rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .table-view { display: none; margin-top: .8rem; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); padding-top: .6rem; }
+  .table-view.open { display: block; }
+  table.datatable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  table.datatable th { text-align: left; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); padding: .4rem .5rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  table.datatable td { padding: .38rem .5rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.datatable td:first-child { font-family: var(--sans); color: var(--ink); }
+
+  .legend-row { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: .45rem; font-size: .74rem; color: var(--ink-soft); font-family: var(--mono); }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+
+  .drawer-empty { color: var(--ink-muted); font-size: .82rem; padding: .4rem 0 .2rem; }
+  .drawer-body { display: none; }
+  .drawer-body.open { display: block; }
+  .drawer-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  .drawer-head h2 { font-size: 1.15rem; margin: 0; color: var(--ink); }
+  .badge {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .hist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.3rem; margin: .8rem 0 1rem; }
+  .hist-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .hist-card .hc-title { font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .3rem; }
+  .hist-card .hc-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--ink); margin-bottom: .3rem; }
+  .hist-card svg.mini-chart { display: block; width: 100%; height: 200px; overflow: visible; }
+  .mc-wrap { position: relative; }
+  .mc-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .mc-tip { min-width: 150px; font-size: .68rem; padding: .45rem .6rem; }
+  .mc-tip .t-row { justify-content: flex-start; gap: .5rem; }
+
+  footer.foot { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .74rem; color: var(--ink-muted); }
+  footer.foot p { margin: .25rem 0; }
+  footer.foot code { font-family: var(--mono); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">Sistema Atividade Econômica</p>
+        <div class="brand"><span class="dot"></span><h1>Recuperação Judicial, Extrajudicial &amp; Falência</h1></div>
+      </div>
+      <div class="as-of" id="as-of-line"></div>
+    </header>
+
+    <section class="kpi-row" id="kpi-row" aria-label="Indicadores principais"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Evolução nacional</p>
+          <p class="card-sub">Contagem de processos por classe processual, mensal (CNJ DataJud, 27 tribunais estaduais).</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-end;">
+          <div class="pills" id="categoria-pills" role="group" aria-label="Categoria"></div>
+          <div class="pills" id="serie-pills" role="group" aria-label="Tipo de série"></div>
+          <div class="pills" id="window-pills" role="group" aria-label="Janela de tempo"></div>
+        </div>
+      </div>
+      <div class="legend-row" style="margin-bottom:.7rem;">
+        <span class="legend-item" id="hero-legend"></span>
+        <button class="tbtn" id="hero-table-btn" style="margin-left:auto;">Ver tabela</button>
+      </div>
+      <div class="pane-wrap">
+        <svg class="chart" id="svg-hero"></svg>
+        <div class="hover-catcher" id="hero-catcher"></div>
+        <div class="hover-tip" id="hero-tip"></div>
+      </div>
+      <div class="x-ticks" id="hero-xticks"></div>
+      <button class="hc-asof" id="hero-asof" style="margin-top:.5rem;"></button>
+      <div class="table-view" id="hero-table"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Visão por UF</p><p class="card-sub">Ranking dos estados com processos na última competência</p></div>
+        <div class="pills" id="uf-metric-pills" role="group" aria-label="Categoria do ranking por UF"></div>
+      </div>
+      <div id="bars-uf"></div>
+    </section>
+
+    <section class="card" id="drawer-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento por UF</p><p class="card-sub">Clique num estado no ranking acima para ver o histórico das 3 categorias e a participação no total nacional.</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-empty">Nenhuma UF selecionada ainda.</div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </section>
+
+    <footer class="foot">
+      <p>Fonte: CNJ DataJud (API pública, <code>api-publica.datajud.cnj.jus.br</code>) — contagem de processos pela classe processual (Tabela Processual Unificada: Recuperação Judicial código 129, Recuperação Extrajudicial 128, Falência de Empresários/Sociedades Empresariais/ME/EPP 108), a partir da data de ajuizamento, nos 27 tribunais estaduais (competência da Justiça Estadual).</p>
+      <p>Este número tende a ficar <b>mais alto</b> que indicadores de imprensa/Serasa Experian de meses anteriores a esta mudança de fonte — o DataJud conta processos judiciais brutos, um critério mais amplo que um indicador comercial curado (ver README para detalhe da comparação).</p>
+      <p>"M/M" = variação ante o mês imediatamente anterior · "12M" = variação ante o mesmo mês do ano anterior (interanual).</p>
+    </footer>
+  </main>
+
+<script>
+const DADOS = {"meta": {"competencia_min": 202001, "competencia_max": 202606, "total_competencias": 78}, "periodos": [202001, 202002, 202003, 202004, 202005, 202006, 202007, 202008, 202009, 202010, 202011, 202012, 202101, 202102, 202103, 202104, 202105, 202106, 202107, 202108, 202109, 202110, 202111, 202112, 202201, 202202, 202203, 202204, 202205, 202206, 202207, 202208, 202209, 202210, 202211, 202212, 202301, 202302, 202303, 202304, 202305, 202306, 202307, 202308, 202309, 202310, 202311, 202312, 202401, 202402, 202403, 202404, 202405, 202406, 202407, 202408, 202409, 202410, 202411, 202412, 202501, 202502, 202503, 202504, 202505, 202506, 202507, 202508, 202509, 202510, 202511, 202512, 202601, 202602, 202603, 202604, 202605, 202606], "categorias": [{"key": "rj", "label": "Recuperação Judicial", "hist_valor": [76, 175, 109, 104, 113, 144, 114, 141, 104, 165, 139, 76, 81, 72, 120, 87, 95, 97, 133, 101, 80, 107, 75, 71, 68, 61, 87, 76, 59, 92, 79, 133, 110, 78, 65, 74, 61, 84, 100, 92, 108, 194, 97, 125, 97, 113, 84, 97, 58, 98, 102, 109, 116, 154, 127, 121, 101, 123, 96, 115, 106, 121, 138, 133, 133, 125, 149, 156, 150, 155, 193, 114, 103, 115, 150, 130, 144, 114], "hist_mm_delta": [null, 99, -66, -5, 9, 31, -30, 27, -37, 61, -26, -63, 5, -9, 48, -33, 8, 2, 36, -32, -21, 27, -32, -4, -3, -7, 26, -11, -17, 33, -13, 54, -23, -32, -13, 9, -13, 23, 16, -8, 16, 86, -97, 28, -28, 16, -29, 13, -39, 40, 4, 7, 7, 38, -27, -6, -20, 22, -27, 19, -9, 15, 17, -5, 0, -8, 24, 7, -6, 5, 38, -79, -11, 12, 35, -20, 14, -30], "hist_mm_pct": [null, 130.26, -37.71, -4.59, 8.65, 27.43, -20.83, 23.68, -26.24, 58.65, -15.76, -45.32, 6.58, -11.11, 66.67, -27.5, 9.2, 2.11, 37.11, -24.06, -20.79, 33.75, -29.91, -5.33, -4.23, -10.29, 42.62, -12.64, -22.37, 55.93, -14.13, 68.35, -17.29, -29.09, -16.67, 13.85, -17.57, 37.7, 19.05, -8.0, 17.39, 79.63, -50.0, 28.87, -22.4, 16.49, -25.66, 15.48, -40.21, 68.97, 4.08, 6.86, 6.42, 32.76, -17.53, -4.72, -16.53, 21.78, -21.95, 19.79, -7.83, 14.15, 14.05, -3.62, 0.0, -6.02, 19.2, 4.7, -3.85, 3.33, 24.52, -40.93, -9.65, 11.65, 30.43, -13.33, 10.77, -20.83], "hist_a12_pct": [null, null, null, null, null, null, null, null, null, null, null, null, 6.58, -58.86, 10.09, -16.35, -15.93, -32.64, 16.67, -28.37, -23.08, -35.15, -46.04, -6.58, -16.05, -15.28, -27.5, -12.64, -37.89, -5.15, -40.6, 31.68, 37.5, -27.1, -13.33, 4.23, -10.29, 37.7, 14.94, 21.05, 83.05, 110.87, 22.78, -6.02, -11.82, 44.87, 29.23, 31.08, -4.92, 16.67, 2.0, 18.48, 7.41, -20.62, 30.93, -3.2, 4.12, 8.85, 14.29, 18.56, 82.76, 23.47, 35.29, 22.02, 14.66, -18.83, 17.32, 28.93, 48.51, 26.02, 101.04, -0.87, -2.83, -4.96, 8.7, -2.26, 8.27, -8.8]}, {"key": "extrajudicial", "label": "Recuperação Extrajudicial", "hist_valor": [1, 1, 2, 1, 1, 1, 0, 2, 0, 2, 2, 1, 0, 1, 3, 1, 5, 3, 2, 3, 3, 0, 3, 1, 0, 2, 1, 2, 2, 2, 5, 3, 2, 4, 1, 18, 1, 5, 8, 0, 3, 3, 5, 4, 4, 2, 0, 4, 3, 3, 3, 14, 7, 5, 5, 7, 7, 9, 4, 10, 6, 5, 4, 8, 7, 5, 7, 14, 15, 10, 3, 6, 4, 9, 13, 3, 4, 4], "hist_mm_delta": [null, 0, 1, -1, 0, 0, -1, 2, -2, 2, 0, -1, -1, 1, 2, -2, 4, -2, -1, 1, 0, -3, 3, -2, -1, 2, -1, 1, 0, 0, 3, -2, -1, 2, -3, 17, -17, 4, 3, -8, 3, 0, 2, -1, 0, -2, -2, 4, -1, 0, 0, 11, -7, -2, 0, 2, 0, 2, -5, 6, -4, -1, -1, 4, -1, -2, 2, 7, 1, -5, -7, 3, -2, 5, 4, -10, 1, 0], "hist_mm_pct": [null, 0.0, 100.0, -50.0, 0.0, 0.0, -100.0, null, -100.0, null, 0.0, -50.0, -100.0, null, 200.0, -66.67, 400.0, -40.0, -33.33, 50.0, 0.0, -100.0, null, -66.67, -100.0, null, -50.0, 100.0, 0.0, 0.0, 150.0, -40.0, -33.33, 100.0, -75.0, 1700.0, -94.44, 400.0, 60.0, -100.0, null, 0.0, 66.67, -20.0, 0.0, -50.0, -100.0, null, -25.0, 0.0, 0.0, 366.67, -50.0, -28.57, 0.0, 40.0, 0.0, 28.57, -55.56, 150.0, -40.0, -16.67, -20.0, 100.0, -12.5, -28.57, 40.0, 100.0, 7.14, -33.33, -70.0, 100.0, -33.33, 125.0, 44.44, -76.92, 33.33, 0.0], "hist_a12_pct": [null, null, null, null, null, null, null, null, null, null, null, null, -100.0, 0.0, 50.0, 0.0, 400.0, 200.0, null, 50.0, null, -100.0, 50.0, 0.0, null, 100.0, -66.67, 100.0, -60.0, -33.33, 150.0, 0.0, -33.33, null, -66.67, 1700.0, null, 150.0, 700.0, -100.0, 50.0, 50.0, 0.0, 33.33, 100.0, -50.0, -100.0, -77.78, 200.0, -40.0, -62.5, null, 133.33, 66.67, 0.0, 75.0, 75.0, 350.0, null, 150.0, 100.0, 66.67, 33.33, -42.86, 0.0, 0.0, 40.0, 100.0, 114.29, 11.11, -25.0, -40.0, -33.33, 80.0, 225.0, -62.5, -42.86, -20.0]}, {"key": "falencia", "label": "Falência", "hist_valor": [90, 128, 83, 79, 99, 122, 157, 143, 124, 132, 97, 88, 97, 91, 114, 98, 118, 112, 116, 97, 103, 96, 90, 101, 61, 93, 97, 103, 109, 124, 127, 148, 116, 121, 113, 109, 89, 117, 173, 153, 163, 128, 153, 171, 108, 123, 99, 127, 86, 116, 130, 128, 139, 126, 151, 145, 119, 156, 126, 97, 77, 108, 100, 145, 131, 111, 127, 132, 161, 138, 147, 130, 104, 126, 167, 157, 174, 164], "hist_mm_delta": [null, 38, -45, -4, 20, 23, 35, -14, -19, 8, -35, -9, 9, -6, 23, -16, 20, -6, 4, -19, 6, -7, -6, 11, -40, 32, 4, 6, 6, 15, 3, 21, -32, 5, -8, -4, -20, 28, 56, -20, 10, -35, 25, 18, -63, 15, -24, 28, -41, 30, 14, -2, 11, -13, 25, -6, -26, 37, -30, -29, -20, 31, -8, 45, -14, -20, 16, 5, 29, -23, 9, -17, -26, 22, 41, -10, 17, -10], "hist_mm_pct": [null, 42.22, -35.16, -4.82, 25.32, 23.23, 28.69, -8.92, -13.29, 6.45, -26.52, -9.28, 10.23, -6.19, 25.27, -14.04, 20.41, -5.08, 3.57, -16.38, 6.19, -6.8, -6.25, 12.22, -39.6, 52.46, 4.3, 6.19, 5.83, 13.76, 2.42, 16.54, -21.62, 4.31, -6.61, -3.54, -18.35, 31.46, 47.86, -11.56, 6.54, -21.47, 19.53, 11.76, -36.84, 13.89, -19.51, 28.28, -32.28, 34.88, 12.07, -1.54, 8.59, -9.35, 19.84, -3.97, -17.93, 31.09, -19.23, -23.02, -20.62, 40.26, -7.41, 45.0, -9.66, -15.27, 14.41, 3.94, 21.97, -14.29, 6.52, -11.56, -20.0, 21.15, 32.54, -5.99, 10.83, -5.75], "hist_a12_pct": [null, null, null, null, null, null, null, null, null, null, null, null, 7.78, -28.91, 37.35, 24.05, 19.19, -8.2, -26.11, -32.17, -16.94, -27.27, -7.22, 14.77, -37.11, 2.2, -14.91, 5.1, -7.63, 10.71, 9.48, 52.58, 12.62, 26.04, 25.56, 7.92, 45.9, 25.81, 78.35, 48.54, 49.54, 3.23, 20.47, 15.54, -6.9, 1.65, -12.39, 16.51, -3.37, -0.85, -24.86, -16.34, -14.72, -1.56, -1.31, -15.2, 10.19, 26.83, 27.27, -23.62, -10.47, -6.9, -23.08, 13.28, -5.76, -11.9, -15.89, -8.97, 35.29, -11.54, 16.67, 34.02, 35.06, 16.67, 67.0, 8.28, 32.82, 47.75]}], "ufs": [{"uf": "AC", "regiao": "Norte", "hist_rj": [null, null, null, 1, null, null, 0, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, 1, null, null, 1, null, null, null, 1, null, null, 1, 3, 1, 1, null, null, 1, null, 2, null, 1, null, 3, null, null, 1, 2, null, null, 0, null, null], "hist_extrajudicial": [null, null, null, 0, null, null, 0, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, 0, null, null, 0, null, null, null, 0, null, null, 0, 0, 0, 0, null, null, 0, null, 0, null, 0, null, 0, null, null, 0, 0, null, null, 0, null, null], "hist_falencia": [null, null, null, 0, null, null, 1, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, 1, null, null, 0, null, null, null, 0, null, null, 0, 0, 2, 0, null, null, 0, null, 1, null, 0, null, 0, null, null, 0, 0, null, null, 1, null, null]}, {"uf": "AL", "regiao": "Nordeste", "hist_rj": [2, 4, 1, 1, 1, null, null, 1, 0, null, 0, null, 0, null, null, 2, null, null, 2, 3, 3, 0, 0, 2, 1, 2, 2, null, 1, null, 2, 3, 4, null, 1, 1, 2, 2, null, 1, 4, 0, null, 2, 5, null, 2, 1, 2, 1, null, 1, null, null, 1, 4, null, 0, 0, null, null, 0, null, 1, 3, 1, null, 3, null, null, null, 3, 1, null, 1, 2, null, null], "hist_extrajudicial": [0, 0, 0, 0, 0, null, null, 0, 0, null, 0, null, 0, null, null, 0, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, null, 0, 0, 0, null, 0, 0, 0, 0, null, 0, 0, 0, null, 0, 1, null, 0, 0, 0, 0, null, 0, null, null, 0, 0, null, 0, 0, null, null, 0, null, 0, 0, 0, null, 0, null, null, null, 0, 1, null, 0, 0, null, null], "hist_falencia": [0, 0, 0, 1, 0, null, null, 0, 1, null, 2, null, 1, null, null, 0, null, null, 3, 0, 0, 1, 3, 0, 1, 1, 0, null, 1, null, 0, 0, 0, null, 1, 0, 0, 0, null, 0, 1, 1, null, 0, 0, null, 0, 0, 0, 0, null, 0, null, null, 0, 0, null, 3, 1, null, null, 1, null, 0, 0, 2, null, 1, null, null, null, 1, 1, null, 1, 0, null, null]}, {"uf": "AM", "regiao": "Norte", "hist_rj": [1, null, 1, null, 0, 1, 1, 3, 0, 3, 0, 1, 0, null, 0, null, null, 0, 3, 2, 6, 26, 4, 2, null, null, 5, 3, 0, null, 2, 2, null, 1, 1, 1, 0, null, 0, null, 2, 1, 2, 0, null, 1, 1, 1, 1, 0, 2, 2, 2, 2, 3, 0, 0, 1, 1, 2, 2, 1, null, 2, 1, 0, 2, 6, 3, 3, 5, 1, 5, 4, 5, 5, 4, 5], "hist_extrajudicial": [0, null, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, null, null, 0, 0, 0, 0, 0, 0, 0, null, null, 0, 0, 0, null, 0, 0, null, 0, 0, 0, 0, null, 0, null, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0], "hist_falencia": [0, null, 0, null, 1, 0, 1, 1, 2, 1, 3, 3, 2, null, 1, null, null, 1, 1, 0, 1, 2, 1, 0, null, null, 0, 0, 2, null, 0, 1, null, 1, 0, 1, 1, null, 1, null, 0, 0, 0, 3, null, 1, 0, 0, 0, 5, 1, 1, 0, 0, 2, 2, 3, 0, 5, 0, 1, 0, null, 1, 0, 1, 0, 1, 0, 0, 2, 0, 0, 0, 0, 1, 1, 0]}, {"uf": "AP", "regiao": "Norte", "hist_rj": [null, null, null, 1, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, 3, null, null, null, null, 0, 1, 1, null, null, null, null, null, 1, 0, null, null, null, 0, null, null, 1, null, null, null, null, null, null, null, null, null, null, null], "hist_extrajudicial": [null, null, null, 0, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, 0, null, null, null, null, 0, 0, 0, null, null, null, null, null, 0, 0, null, null, null, 1, null, null, 0, null, null, null, null, null, null, null, null, null, null, null], "hist_falencia": [null, null, null, 0, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, 0, null, null, null, null, 1, 0, 0, null, null, null, null, null, 1, 1, null, null, null, 0, null, null, 0, null, null, null, null, null, null, null, null, null, null, null]}, {"uf": "BA", "regiao": "Nordeste", "hist_rj": [0, 0, 0, 0, 2, 0, 1, 0, null, 0, 1, 1, 0, null, 1, 1, null, 0, 2, 2, 1, 0, 2, 1, 0, null, 1, 1, 1, 0, 2, 2, 1, 1, 1, 3, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 2, 0, 1, 2, 3, 0, 1, null, 0, 2, 0, 1, 2, 1, 0, 0, 2, 3, 6, 1, 1, 1, 6, 2, 1, 1, 3, 1, 2, 2], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, null, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, null, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "hist_falencia": [2, 1, 2, 3, 2, 3, 1, 4, null, 8, 2, 3, 2, null, 2, 2, null, 4, 1, 1, 1, 1, 0, 2, 1, null, 2, 2, 3, 0, 1, 1, 2, 4, 1, 1, 1, 3, 2, 3, 1, 3, 3, 8, 4, 3, 5, 1, 2, 1, 3, 1, 2, 1, 6, null, 4, 5, 2, 2, 1, 2, 1, 3, 3, 0, 3, 2, 1, 2, 1, 0, 0, 1, 2, 2, 2, 3]}, {"uf": "CE", "regiao": "Nordeste", "hist_rj": [2, 4, 2, 3, 9, 1, 0, null, 2, 2, 0, 1, 1, 1, 1, 3, 0, 1, 1, 0, 3, 2, 1, 1, 2, 3, 3, 1, 1, 2, 0, 0, 1, 1, 1, 2, 1, 2, 1, 0, 0, 0, 3, 0, 2, 5, 0, 4, 1, 1, 1, 1, 2, 1, 1, 3, 1, 1, 1, null, 0, 1, 0, 1, 2, 2, 1, 1, 1, 3, 3, 1, 1, 0, 2, 2, 1, null], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null], "hist_falencia": [4, 2, 1, 2, 2, 0, 2, null, 3, 3, 4, 1, 2, 5, 4, 4, 1, 5, 4, 2, 0, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 1, 0, 1, 1, 3, 3, 1, 2, 2, 3, 3, 2, 2, 2, 1, 0, 1, 2, 3, 4, 1, 3, 1, 1, null, 1, 3, 1, 4, 3, 3, 0, 1, 2, 2, 3, 1, 0, 2, 1, 5, 2, null]}, {"uf": "DF", "regiao": "Centro-Oeste", "hist_rj": [0, 2, 0, 0, 1, 1, 0, 3, 0, 2, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, null, 0, 2, 1, 1, 0, 0, 0, 0, 2, 1, 1, 0, 1, 1, 0, 1, 3, 2, 0, 2, 2, 2, 2, 0, 0, 0, 2, 2, 1, 2, 4, 1, 0, 1, 2, 1, 1, 0, 0, 1, 3, 2, 1, 3, 0, 2, 6, 5, 2, 1, 3, 3, 1, 2, null], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null], "hist_falencia": [5, 8, 7, 5, 11, 2, 8, 4, 6, 10, 4, 5, 6, 6, 7, 3, 7, 6, 2, 1, 3, 6, null, 2, 1, 4, 0, 5, 5, 4, 5, 4, 8, 2, 1, 0, 3, 3, 4, 2, 4, 5, 3, 2, 2, 5, 4, 5, 5, 4, 4, 10, 4, 4, 5, 6, 4, 5, 4, 6, 4, 2, 3, 6, 6, 1, 1, 5, 7, 1, 2, 2, 3, 2, 4, 1, 3, null]}, {"uf": "ES", "regiao": "Sudeste", "hist_rj": [1, 2, 0, 0, null, 0, null, 2, 0, 1, 0, 1, 2, null, 0, 2, 2, 0, 2, 1, 0, 4, 1, 3, 1, 1, 0, null, 0, null, 1, 1, 0, 0, null, 3, 3, 2, 1, 2, 4, 2, 2, 1, 0, 0, 0, 3, 2, 2, 2, 1, 4, 1, 1, 2, 0, 4, 3, 4, 1, 1, 2, 0, 0, 3, 3, 2, 2, 2, 2, 0, 0, 5, 1, 3, 4, 1], "hist_extrajudicial": [0, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, null, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "hist_falencia": [3, 2, 1, 1, null, 1, null, 2, 4, 1, 1, 2, 3, null, 1, 3, 6, 1, 4, 2, 5, 2, 2, 4, 4, 0, 1, null, 4, null, 6, 2, 3, 1, null, 2, 2, 2, 6, 1, 1, 2, 1, 2, 4, 1, 2, 0, 3, 1, 4, 2, 1, 0, 3, 1, 2, 1, 2, 3, 3, 3, 2, 1, 2, 2, 4, 1, 3, 1, 2, 1, 1, 2, 3, 1, 1, 3]}, {"uf": "GO", "regiao": "Centro-Oeste", "hist_rj": [4, 4, 6, 5, 7, 30, 37, 4, 10, 12, 9, 6, 6, 9, 16, 11, 9, 20, 21, 28, 9, 14, 10, 14, 12, 11, 19, 19, 10, 15, 19, 17, 12, 10, 6, 6, 2, 6, 23, 23, 13, 9, 12, 13, 14, 20, 5, 5, 8, 14, 9, 11, 15, 27, 19, 10, 17, 19, 9, 9, 9, 11, 12, 10, 26, 10, 17, 15, 23, 19, 12, 13, 12, 17, 20, 12, 14, 10], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 2, 1, 1, 0, 3, 0, 1, 2, 1, 2, 0, 1, 2, 2, 4, 1, 0, 0, 1, 1, 0, 0, 0], "hist_falencia": [1, 5, 3, 1, 2, 2, 1, 2, 0, 2, 4, 1, 1, 1, 8, 4, 3, 4, 0, 2, 0, 9, 1, 2, 1, 2, 4, 5, 3, 3, 8, 1, 3, 2, 1, 6, 9, 4, 3, 0, 9, 4, 3, 3, 2, 4, 2, 2, 2, 1, 6, 6, 7, 3, 3, 2, 3, 6, 5, 3, 3, 5, 6, 3, 4, 3, 6, 8, 6, 6, 5, 9, 4, 2, 16, 11, 8, 4]}, {"uf": "MA", "regiao": "Nordeste", "hist_rj": [1, 2, 2, 0, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 2, 2, 1, 4, 1, 1, 2, 1, 1, null, 0, 0, 1, 1, 0, 0, 3, 1, 1, 0, 2, 1, 0, 2, 1, 1, 3, 0, 0, 2, 2, 3, 1, null, 3, 1, 1, 1, null, 3, 2, null, 2], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, null, 0, 0, null, 0], "hist_falencia": [5, 2, 0, 1, 1, 9, 6, 6, 6, 8, 3, 3, 2, 7, 8, 6, 7, 5, 7, 4, 5, 3, 4, 2, 0, 2, 2, 2, 3, 2, 4, 8, 2, 4, 3, 2, 2, 1, 6, 8, 3, 1, 0, 0, null, 1, 1, 0, 1, 1, 1, 2, 2, 2, 1, 3, 0, 1, 2, 1, 0, 1, 1, 1, 0, 1, 0, 0, null, 3, 2, 1, 0, null, 1, 0, null, 1]}, {"uf": "MG", "regiao": "Sudeste", "hist_rj": [5, 3, 6, 3, 4, 5, 6, 12, 3, 5, 5, 5, 2, 4, 5, 12, 7, 4, 5, 6, 2, 8, 3, 6, 2, 8, 7, 5, 5, 7, 3, 5, 10, 4, 4, 5, 5, 8, 9, 1, 9, 11, 12, 13, 9, 10, 6, 10, 2, 10, 13, 9, 16, 17, 13, 14, 8, 9, 21, 13, 3, 17, 21, 15, 13, 10, 18, 18, 15, 14, 10, 8, 10, 8, 9, 11, 10, 4], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0], "hist_falencia": [6, 10, 7, 7, 5, 10, 11, 8, 10, 9, 7, 8, 9, 6, 13, 8, 7, 8, 11, 11, 12, 6, 7, 10, 7, 11, 7, 4, 8, 6, 11, 14, 10, 10, 11, 4, 12, 6, 14, 18, 11, 7, 16, 11, 8, 17, 13, 11, 11, 10, 15, 16, 13, 14, 19, 11, 13, 16, 14, 8, 12, 12, 13, 12, 20, 15, 10, 13, 19, 16, 5, 9, 7, 6, 9, 13, 10, 6]}, {"uf": "MS", "regiao": "Centro-Oeste", "hist_rj": [1, 2, 0, 3, 2, 0, 0, 0, null, 1, 1, null, null, null, 11, 2, 1, 2, 0, null, null, 1, 1, null, null, null, null, null, 0, 1, 0, 1, null, null, 1, 0, null, 0, 1, 2, 0, 1, 3, null, 1, 2, 2, 0, 0, 3, 2, 5, 2, 3, 4, 2, 5, 5, 1, 3, 4, 6, 6, 6, 6, 3, 2, 2, 3, 5, 3, 0, 3, 1, 1, 2, 4, 1], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, null, null, null, 0, 0, 0, 0, 0, null, null, 0, 0, null, null, null, null, null, 0, 0, 0, 0, null, null, 0, 0, null, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], "hist_falencia": [1, 2, 1, 0, 1, 2, 1, 2, null, 2, 0, null, null, null, 0, 0, 3, 0, 2, null, null, 0, 0, null, null, null, null, null, 2, 1, 1, 0, null, null, 0, 1, null, 1, 0, 1, 1, 0, 0, null, 1, 0, 0, 4, 1, 1, 0, 1, 2, 2, 0, 0, 0, 0, 1, 0, 1, 1, 2, 3, 2, 2, 0, 0, 2, 1, 0, 1, 1, 1, 3, 1, 1, 1]}, {"uf": "MT", "regiao": "Centro-Oeste", "hist_rj": [2, 10, 4, 3, 3, 3, 1, 0, 4, 1, 3, 3, 7, 2, 0, 1, 1, 2, 3, 2, null, 0, 2, 1, 2, 6, 2, 2, 5, 0, 0, 2, 2, 1, 2, 3, 0, 7, 2, 3, 3, 6, 5, 5, 5, 6, 8, 9, 5, 13, 10, 12, 10, 12, 14, 5, 8, 7, 9, 14, 10, 14, 16, 15, 10, 10, 13, 23, 12, 9, 8, 7, 7, 12, 15, 3, 8, 1], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], "hist_falencia": [2, 1, 1, 0, 2, 2, 0, 1, 0, 2, 1, 0, 1, 0, 3, 1, 0, 0, 0, 0, null, 3, 0, 0, 1, 0, 2, 2, 5, 2, 2, 3, 1, 3, 0, 1, 5, 3, 1, 2, 0, 3, 2, 1, 3, 1, 4, 0, 3, 1, 2, 1, 6, 2, 2, 0, 5, 3, 1, 0, 0, 2, 5, 1, 0, 0, 1, 4, 0, 0, 3, 0, 0, 1, 3, 2, 0, 1]}, {"uf": "PA", "regiao": "Norte", "hist_rj": [1, null, 1, 0, null, 0, 1, null, 0, 0, 2, 1, 1, null, 2, 1, null, 1, 0, 1, 1, 0, null, 0, null, 0, 1, 0, null, 2, 0, 0, null, 0, null, null, null, 1, 2, 0, 1, 2, 1, 3, 0, 2, 4, 0, 0, 0, 3, 1, 3, 1, 2, 2, 6, 0, 2, 3, 0, 1, 3, 3, 4, 2, 3, 3, 2, 4, 0, 2, 2, 2, 3, 4, 4, 3], "hist_extrajudicial": [0, null, 0, 0, null, 0, 0, null, 0, 0, 0, 0, 0, null, 0, 0, null, 0, 0, 0, 0, 0, null, 0, null, 0, 0, 0, null, 0, 0, 0, null, 0, null, null, null, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], "hist_falencia": [0, null, 0, 1, null, 1, 1, null, 1, 1, 1, 0, 0, null, 0, 1, null, 0, 1, 0, 0, 1, null, 1, null, 1, 0, 3, null, 1, 1, 2, null, 2, null, null, null, 1, 1, 1, 1, 0, 3, 1, 2, 1, 0, 2, 1, 1, 2, 0, 1, 0, 1, 3, 0, 2, 1, 3, 2, 0, 1, 1, 0, 1, 3, 2, 7, 1, 1, 0, 0, 1, 1, 2, 2, 1]}, {"uf": "PB", "regiao": "Nordeste", "hist_rj": [2, 1, null, null, null, 0, null, 2, null, null, null, 1, 0, 0, 0, 2, 0, null, 0, 2, 2, null, 1, 1, 1, null, 0, null, 0, 3, null, 1, 1, null, 2, 0, 0, 1, 0, 1, 1, 2, null, null, 3, 1, 1, null, 0, 2, 1, 0, 0, 5, 0, 0, 0, 1, 0, 1, null, null, 0, 4, 1, 0, 0, 0, 2, 0, 0, 0, null, 1, 4, 2, 2, 1], "hist_extrajudicial": [0, 0, null, null, null, 0, null, 0, null, null, null, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, null, 0, 0, 0, null, 0, null, 0, 0, null, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, null, null, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0], "hist_falencia": [0, 2, null, null, null, 1, null, 2, null, null, null, 1, 2, 1, 3, 2, 1, null, 2, 1, 0, null, 0, 2, 0, null, 2, null, 2, 2, null, 1, 1, null, 0, 4, 3, 1, 4, 1, 1, 0, null, null, 2, 0, 1, null, 1, 0, 2, 2, 1, 1, 2, 1, 1, 3, 2, 2, null, null, 2, 1, 0, 1, 2, 2, 1, 4, 1, 2, null, 1, 0, 0, 1, 4]}, {"uf": "PE", "regiao": "Nordeste", "hist_rj": [2, 1, 2, 1, null, 2, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 0, 1, 2, 0, null, 0, 0, 1, null, 0, 1, 3, 2, 4, null, 5, 2, 3, 2, 6, 3, 3, 4, 1, 4, 2, 6, 1, 3, 3, 5, 4, 2, 2, 4, 2, 3, 4, 2, 1, 1, 2, 3, 3, 2, 4, 2, 2, 2, 2, 3, 4, 2, 3, 2, 6, 2, 2, 1, 8, 4], "hist_extrajudicial": [0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, null, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], "hist_falencia": [0, 1, 2, 0, null, 0, 1, 0, 3, 0, 1, 1, 0, 2, 0, 1, 1, 1, 2, 0, 1, null, 1, 1, 1, null, 1, 0, 2, 3, 1, null, 0, 0, 1, 0, 1, 0, 3, 0, 1, 4, 1, 1, 0, 2, 2, 3, 1, 0, 3, 1, 2, 1, 2, 4, 2, 0, 3, 5, 1, 0, 1, 3, 4, 2, 1, 4, 2, 3, 2, 3, 6, 3, 2, 3, 0, 1]}, {"uf": "PI", "regiao": "Nordeste", "hist_rj": [null, 0, 1, null, null, 1, null, 1, null, null, null, null, null, null, 1, null, null, null, null, 1, 0, null, null, null, null, null, null, null, null, 7, 0, 0, 3, 1, null, null, null, null, null, null, 1, 1, 1, 0, 1, 1, null, 0, 1, null, 1, 0, 0, 1, 3, 2, 1, null, 1, 1, null, null, null, 1, null, null, 0, 2, 1, 1, 3, 2, null, 4, 1, null, 0, 3], "hist_extrajudicial": [null, 0, 0, null, null, 0, null, 0, null, null, null, null, null, null, 0, null, null, null, null, 0, 0, null, null, null, null, null, null, null, null, 0, 0, 0, 0, 0, null, null, null, null, null, null, 1, 0, 0, 0, 0, 0, null, 0, 1, null, 0, 0, 0, 0, 0, 0, 0, null, 0, 1, null, null, null, 0, null, null, 0, 0, 0, 0, 0, 0, null, 0, 0, null, 0, 0], "hist_falencia": [null, 8, 0, null, null, 2, null, 2, null, null, null, null, null, null, 0, null, null, null, null, 0, 1, null, null, null, null, null, null, null, null, 0, 1, 1, 1, 0, null, null, null, null, null, null, 0, 0, 1, 1, 1, 0, null, 1, 0, null, 1, 1, 2, 0, 1, 2, 1, null, 0, 0, null, null, null, 0, null, null, 1, 0, 0, 0, 3, 0, null, 1, 0, null, 1, 2]}, {"uf": "PR", "regiao": "Sul", "hist_rj": [2, 5, 0, 4, 3, 7, 2, 3, 6, 3, 4, 4, 3, 3, 2, 1, 4, 6, 3, 3, 4, 5, 2, 2, 1, 2, 6, 4, 5, 4, 2, 3, 3, 3, 7, 5, 1, 4, 4, 6, 2, 8, 5, 10, 9, 5, 10, 10, 7, 10, 9, 11, 7, 7, 6, 5, 6, 9, 6, 7, 10, 7, 9, 12, 11, 12, 11, 5, 11, 11, 21, 11, 8, 6, 15, 12, 13, 11], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 2, 0, 1, 1, 0, 0, 1, 2, 2, 0, 1, 0, 0, 0, 2, 0, 1, 1, 1], "hist_falencia": [4, 6, 4, 3, 3, 7, 9, 8, 8, 7, 1, 4, 4, 7, 8, 6, 4, 4, 12, 11, 6, 7, 6, 10, 6, 5, 3, 4, 8, 12, 6, 7, 7, 8, 9, 4, 6, 9, 9, 7, 15, 7, 6, 11, 10, 8, 4, 7, 6, 5, 5, 7, 5, 7, 12, 7, 10, 4, 10, 8, 1, 5, 5, 11, 10, 6, 7, 11, 15, 11, 8, 8, 4, 7, 10, 7, 17, 8]}, {"uf": "RJ", "regiao": "Sudeste", "hist_rj": [20, 115, 49, 44, 41, 31, 11, 61, 41, 96, 88, 29, 42, 31, 42, 31, 23, 26, 45, 26, 31, 32, 23, 14, 19, 2, 12, 11, 5, 14, 11, 57, 40, 21, 13, 14, 9, 6, 12, 11, 14, 25, 10, 25, 16, 13, 8, 11, 6, 12, 15, 13, 10, 31, 16, 33, 14, 8, 7, 14, 27, 20, 15, 14, 11, 10, 14, 30, 18, 12, 62, 6, 9, 7, 14, 12, 9, 9], "hist_extrajudicial": [1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 3, 1, 0, 2, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], "hist_falencia": [8, 9, 9, 2, 1, 4, 6, 16, 10, 6, 8, 9, 6, 5, 9, 2, 15, 16, 10, 6, 8, 6, 6, 8, 4, 8, 8, 8, 8, 12, 9, 14, 8, 12, 10, 9, 5, 10, 16, 12, 10, 12, 15, 12, 11, 10, 10, 9, 7, 15, 15, 9, 13, 16, 20, 20, 10, 16, 9, 8, 3, 15, 14, 23, 16, 16, 21, 18, 18, 25, 19, 16, 13, 13, 16, 25, 31, 30]}, {"uf": "RN", "regiao": "Nordeste", "hist_rj": [null, null, 1, null, 1, null, 1, 0, null, 0, 0, 0, 0, null, 0, null, 1, 1, 2, 0, 0, null, null, 1, 1, 1, 0, null, 1, null, null, 6, 0, 0, 0, 2, 0, null, 2, 1, 0, 1, null, 2, null, 1, null, 1, null, 1, 0, 1, 1, 0, 1, 1, 0, 1, null, null, 0, 1, 2, 1, 2, 1, 2, 1, 2, 0, 4, 2, null, 1, 2, 1, null, 1], "hist_extrajudicial": [null, null, 0, null, 0, null, 0, 0, null, 0, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, null, null, 0, 0, 0, 0, null, 0, null, null, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, null, 0, null, 0, null, 0, null, 0, 0, 0, 0, 0, 0, 1, 0, 0, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, null, 0], "hist_falencia": [null, null, 1, null, 0, null, 1, 1, null, 2, 1, 1, 1, null, 2, null, 0, 1, 1, 1, 1, null, null, 1, 3, 1, 1, null, 0, null, null, 0, 1, 1, 1, 1, 1, null, 0, 0, 1, 0, null, 1, null, 1, null, 0, null, 1, 3, 0, 2, 2, 1, 2, 1, 0, null, null, 1, 0, 0, 2, 0, 0, 0, 0, 2, 1, 1, 0, null, 1, 1, 0, null, 3]}, {"uf": "RO", "regiao": "Norte", "hist_rj": [null, 0, 1, 0, 1, null, null, null, 1, 1, 0, 1, null, 0, 2, 1, 0, 3, 1, null, null, null, null, 0, null, 1, 0, 1, null, 1, 1, 0, null, 1, null, null, 1, 0, null, 0, null, 1, 1, 0, null, null, null, 1, 0, null, 1, null, 1, 1, 1, 2, 2, 1, 1, 1, null, 3, 2, 2, 1, 0, null, 2, null, 1, 1, null, null, 0, 0, 0, 0, null], "hist_extrajudicial": [null, 0, 0, 0, 0, null, null, null, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, null, null, null, null, 0, null, 0, 0, 0, null, 0, 0, 0, null, 0, null, null, 0, 0, null, 0, null, 0, 0, 0, null, null, null, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, null, 0, null, 0, 0, null, null, 1, 0, 0, 0, null], "hist_falencia": [null, 1, 0, 1, 0, null, null, null, 0, 1, 1, 0, null, 1, 0, 0, 1, 0, 0, null, null, null, null, 1, null, 0, 1, 0, null, 0, 0, 2, null, 2, null, null, 1, 2, null, 2, null, 0, 0, 1, null, null, null, 0, 1, null, 0, null, 0, 0, 0, 1, 0, 1, 2, 0, null, 0, 0, 0, 1, 1, null, 1, null, 0, 0, null, null, 1, 1, 1, 1, null]}, {"uf": "RR", "regiao": "Norte", "hist_rj": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, 0, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, 0, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "hist_extrajudicial": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, 0, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, 0, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "hist_falencia": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, 1, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"uf": "RS", "regiao": "Sul", "hist_rj": [5, 3, 8, 10, 20, 16, 19, 13, 13, 8, 2, 4, 3, 6, 6, 4, 7, 4, 8, 5, 6, 2, 2, 4, 6, 1, 8, 4, 6, 7, 2, 4, 5, 7, 5, 6, 5, 7, 4, 11, 7, 8, 4, 6, 9, 9, 13, 10, 3, 9, 10, 13, 4, 9, 5, 9, 5, 5, 5, 6, 8, 8, 12, 12, 9, 13, 17, 7, 10, 18, 11, 12, 8, 9, 9, 13, 6, 18], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 2, 0, 0, 1, 0, 0, 0, 0, 1, 1], "hist_falencia": [9, 13, 11, 11, 31, 36, 38, 32, 25, 28, 21, 14, 12, 18, 3, 6, 12, 13, 14, 14, 9, 10, 10, 8, 4, 7, 10, 8, 7, 7, 14, 7, 11, 5, 6, 6, 7, 8, 13, 8, 11, 10, 10, 14, 8, 10, 8, 8, 6, 9, 6, 9, 6, 6, 8, 6, 10, 10, 9, 5, 7, 11, 8, 16, 7, 4, 10, 6, 9, 4, 14, 12, 6, 6, 9, 13, 11, 14]}, {"uf": "SC", "regiao": "Sul", "hist_rj": [2, 3, 5, 1, 1, 2, 6, 9, 8, 6, 7, 3, 1, 4, 10, 5, 1, 6, 2, 2, 1, 0, 4, 3, 2, 3, 0, 4, 2, 7, 3, 4, 3, 2, 4, 7, 2, 5, 5, 3, 6, 5, 7, 8, 4, 4, 3, 4, 2, 5, 1, 2, 8, 9, 5, 8, 7, 13, 6, 4, 5, 6, 7, 5, 3, 11, 12, 5, 10, 10, 5, 8, 6, 4, 10, 6, 5, 2], "hist_extrajudicial": [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2, 1, 0, 0, 0, 1, 1, 0, 1, 0], "hist_falencia": [4, 7, 2, 2, 2, 9, 5, 9, 12, 9, 4, 1, 13, 3, 6, 8, 5, 5, 8, 2, 4, 2, 10, 4, 2, 5, 5, 2, 6, 6, 6, 10, 8, 8, 6, 7, 3, 3, 9, 1, 8, 5, 11, 7, 4, 7, 5, 7, 3, 8, 11, 9, 9, 5, 5, 2, 3, 11, 5, 4, 3, 4, 5, 10, 4, 6, 8, 6, 6, 5, 7, 9, 6, 6, 8, 6, 10, 8]}, {"uf": "SE", "regiao": "Nordeste", "hist_rj": [null, 2, 0, null, 0, null, 0, 1, 0, null, 1, null, 0, 1, 0, 0, 0, null, 1, 0, 0, null, null, 0, 0, null, null, 1, 0, null, null, null, 0, null, null, null, 1, 0, null, null, 1, null, 1, null, 2, null, 0, 0, 0, 1, null, 2, 0, null, 0, 0, 0, 0, 0, null, null, 1, null, null, null, 0, 1, 0, null, null, null, null, 0, 0, 0, 1, 1, null], "hist_extrajudicial": [null, 0, 0, null, 0, null, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, null, 0, 0, 0, null, null, 0, 0, null, null, 0, 0, null, null, null, 0, null, null, null, 0, 0, null, null, 0, null, 0, null, 0, null, 0, 0, 0, 0, null, 0, 0, null, 0, 0, 0, 0, 0, null, null, 0, null, null, null, 0, 0, 0, null, null, null, null, 0, 0, 0, 0, 0, null], "hist_falencia": [null, 1, 1, null, 1, null, 1, 3, 1, null, 0, null, 1, 1, 2, 1, 1, null, 0, 1, 1, null, null, 1, 2, null, null, 1, 1, null, null, null, 1, null, null, null, 0, 1, null, null, 1, null, 2, null, 0, null, 1, 1, 1, 1, null, 1, 1, null, 1, 1, 1, 3, 1, null, null, 1, null, null, null, 1, 0, 1, null, null, null, null, 1, 1, 1, 0, 0, null]}, {"uf": "SP", "regiao": "Sudeste", "hist_rj": [23, 12, 19, 24, 16, 43, 25, 23, 14, 22, 13, 14, 11, 10, 20, 7, 35, 20, 31, 13, 9, 13, 18, 14, 14, 19, 17, 18, 13, 18, 22, 22, 19, 21, 14, 11, 20, 28, 25, 18, 35, 104, 21, 27, 14, 21, 17, 20, 9, 8, 17, 13, 18, 17, 26, 14, 15, 27, 13, 24, 18, 16, 21, 19, 19, 24, 16, 26, 22, 29, 24, 28, 20, 27, 26, 32, 46, 35], "hist_extrajudicial": [0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 0, 0, 0, 0, 2, 0, 1, 0, 0, 2, 1, 1, 3, 0, 15, 0, 4, 2, 0, 2, 2, 2, 2, 0, 0, 0, 2, 1, 2, 1, 6, 4, 3, 3, 4, 2, 5, 3, 2, 0, 2, 0, 5, 2, 2, 1, 6, 5, 3, 1, 5, 2, 2, 8, 2, 1, 2], "hist_falencia": [35, 47, 30, 38, 34, 31, 63, 40, 32, 32, 27, 31, 29, 28, 34, 39, 44, 38, 31, 38, 45, 35, 36, 41, 22, 43, 45, 53, 37, 62, 50, 69, 48, 54, 60, 59, 26, 58, 79, 77, 80, 62, 73, 90, 42, 47, 34, 64, 29, 49, 45, 48, 55, 56, 51, 68, 43, 64, 42, 38, 32, 40, 30, 43, 47, 42, 49, 44, 61, 52, 64, 55, 51, 67, 75, 61, 71, 74]}, {"uf": "TO", "regiao": "Norte", "hist_rj": [0, null, null, null, null, null, null, null, null, 1, null, null, null, 1, null, null, 1, 1, null, 1, null, null, 1, 2, null, null, 0, null, null, 2, 5, null, null, null, null, null, null, 1, null, 1, null, null, 1, null, 0, 3, null, 1, 2, 1, null, null, 4, 1, 0, 1, 2, 4, 3, 2, 3, 1, 4, 3, 1, 5, 1, 0, 3, 2, 4, 2, null, 1, 1, 2, 1, 1], "hist_extrajudicial": [0, null, null, null, null, null, null, null, null, 0, null, null, null, 0, null, null, 0, 0, null, 0, null, null, 1, 0, null, null, 0, null, null, 0, 0, null, null, null, null, null, null, 0, null, 0, null, null, 0, null, 0, 0, null, 0, 0, 0, null, null, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, null, 0, 2, 0, 0, 0], "hist_falencia": [1, null, null, null, null, null, null, null, null, 0, null, null, null, 0, null, null, 0, 0, null, 0, null, null, 1, 0, null, null, 1, null, null, 0, 0, null, null, null, null, null, null, 0, null, 6, null, null, 0, null, 1, 0, null, 0, 0, 1, null, null, 3, 1, 2, 2, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 2, 0, null, 1, 0, 1, 1, 0]}]};
+
+function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const COR = {
+  teal: getVar('--teal'), amber: getVar('--amber'), rose: getVar('--rose'),
+  violet: getVar('--violet'), green: getVar('--green'), red: getVar('--red'),
+  surface: getVar('--surface'), inkMuted: getVar('--ink-muted'),
+};
+const HUE_BASE = { teal: COR.teal, amber: COR.amber, rose: COR.rose, violet: COR.violet, green: COR.green };
+
+function fmtContagem(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mil';
+  return v.toLocaleString('pt-BR');
+}
+function fmtPct(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function competenciaLabel(c) {
+  const s = String(c);
+  const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return `${MES[parseInt(s.slice(4,6),10)-1]}/${s.slice(2,4)}`;
+}
+
+const CATEGORIAS = [
+  { key: 'rj', label: 'Recuperação Judicial', hue: 'rose' },
+  { key: 'extrajudicial', label: 'Recuperação Extrajudicial', hue: 'amber' },
+  { key: 'falencia', label: 'Falência', hue: 'violet' },
+];
+const SERIES_TIPO = [
+  { key: 'nivel', label: 'Processos no mês', campo: 'hist_valor', fmt: v => fmtContagem(v), tipo: 'nivel' },
+  { key: 'mm_pct', label: 'Variação M/M (%)', campo: 'hist_mm_pct', fmt: v => fmtPct(v,1), tipo: 'variacao' },
+  { key: 'a12_pct', label: 'Variação 12M (%)', campo: 'hist_a12_pct', fmt: v => fmtPct(v,1), tipo: 'variacao' },
+];
+const categoriaPorKey = new Map(DADOS.categorias.map(c => [c.key, c]));
+const ufPorSigla = new Map(DADOS.ufs.map(u => [u.uf, u]));
+
+// ---------- header + KPIs ----------
+function renderHeader() {
+  const n = DADOS.periodos.length;
+  if (!n) {
+    document.getElementById('as-of-line').textContent = 'Sem dados carregados ainda.';
+    document.getElementById('kpi-row').innerHTML = '<p class="drawer-empty">Rode o pipeline de atualização para carregar os dados do DataJud.</p>';
+    return;
+  }
+  document.getElementById('as-of-line').innerHTML =
+    `Competências <b>${competenciaLabel(DADOS.meta.competencia_min)}</b> a <b>${competenciaLabel(DADOS.meta.competencia_max)}</b> · ${DADOS.meta.total_competencias} meses`;
+
+  const ultimoIdx = n - 1;
+  document.getElementById('kpi-row').innerHTML = CATEGORIAS.map(catDef => {
+    const c = categoriaPorKey.get(catDef.key);
+    const v = c.hist_valor[ultimoIdx];
+    const mm = c.hist_mm_pct[ultimoIdx], mmDelta = c.hist_mm_delta[ultimoIdx], a12 = c.hist_a12_pct[ultimoIdx];
+    const partes = [];
+    if (mmDelta != null) partes.push(`<span class="${mmDelta>=0?'up':'down'}">Δ mês: ${mmDelta>=0?'+':''}${fmtContagem(mmDelta)}${mm!=null?` (${mm>=0?'+':''}${fmtPct(mm,0)})`:''}</span>`);
+    if (a12 != null) partes.push(`<span class="${a12>=0?'up':'down'}">12M: ${a12>=0?'+':''}${fmtPct(a12,0)}</span>`);
+    return `<div class="kpi" style="--kpi-hue:var(--${catDef.hue})">
+      <div class="label">${catDef.label} — ${competenciaLabel(DADOS.meta.competencia_max)}</div>
+      <div class="value">${fmtContagem(v)}</div>
+      <div class="caption">${partes.join(' · ') || 'sem comparação disponível'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- hero chart ----------
+const JANELAS = [
+  { key: '12', label: '1 ano' }, { key: '24', label: '2 anos' }, { key: '36', label: '3 anos' },
+  { key: '60', label: '5 anos' }, { key: 'tudo', label: 'Tudo' },
+];
+let categoriaAtual = 'rj';
+let serieAtual = 'nivel';
+let janelaAtual = '36';
+let heroLayout = null;
+
+function filtrarJanela(valores, periodos) {
+  if (janelaAtual === 'tudo') return { valores, periodos };
+  const n = parseInt(janelaAtual, 10);
+  return { valores: valores.slice(-n), periodos: periodos.slice(-n) };
+}
+
+function renderHero() {
+  if (!DADOS.periodos.length) return;
+  const catDef = CATEGORIAS.find(c => c.key === categoriaAtual);
+  const sDef = SERIES_TIPO.find(s => s.key === serieAtual);
+  const cat = categoriaPorKey.get(categoriaAtual);
+  const { valores, periodos } = filtrarJanela(cat[sDef.campo], DADOS.periodos);
+
+  document.getElementById('hero-legend').innerHTML =
+    `<span class="legend-swatch" style="background:var(--${catDef.hue})"></span>${sDef.label} — ${catDef.label}`;
+
+  const svg = document.getElementById('svg-hero');
+  const largura = svg.parentElement.clientWidth || 900, altura = 220;
+  svg.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svg.innerHTML = '';
+  const n = periodos.length;
+  const pontos = [];
+  for (let i = 0; i < n; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) { svg.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">dado insuficiente</text>'; heroLayout = null; return; }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const padL = 8, padR = 8;
+  const x = i => padL + (i/(Math.max(n-1,1))) * (largura - padL - padR);
+  const y = v => altura - 14 - ((v - min) / span) * (altura - 28);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', padL); gl.setAttribute('x2', largura - padR);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svg.appendChild(gl);
+  }
+  if (sDef.tipo === 'variacao') {
+    const zeroY = y(0);
+    if (zeroY >= 0 && zeroY <= altura) {
+      const zl = svgns('line');
+      zl.setAttribute('x1', padL); zl.setAttribute('x2', largura - padR);
+      zl.setAttribute('y1', zeroY); zl.setAttribute('y2', zeroY);
+      zl.setAttribute('stroke', COR.inkMuted); zl.setAttribute('stroke-width', 1);
+      svg.appendChild(zl);
+    }
+  }
+  const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', HUE_BASE[catDef.hue]);
+  lineEl.setAttribute('stroke-width','2.4'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svg.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 5);
+  dot.setAttribute('fill', HUE_BASE[catDef.hue]); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 2);
+  svg.appendChild(dot);
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line'); crosshair.id = 'hero-crosshair';
+  svg.appendChild(crosshair);
+
+  heroLayout = { x, y, largura, altura, periodos, valores };
+  const idxs = n <= 2 ? [0, n-1] : [0, Math.round((n-1)/2), n-1];
+  document.getElementById('hero-xticks').innerHTML = idxs.map(i => `<span>${competenciaLabel(periodos[i])}</span>`).join('');
+  renderHeroTable(sDef);
+
+  let ultimoIdxReal = -1;
+  for (let i = valores.length - 1; i >= 0; i--) if (valores[i] != null) { ultimoIdxReal = i; break; }
+  const btn = document.getElementById('hero-asof');
+  if (ultimoIdxReal >= 0) {
+    btn.textContent = `* dado mais recente: ${competenciaLabel(periodos[ultimoIdxReal])}`;
+    btn.onclick = () => mostrarHeroIndice(ultimoIdxReal);
+  } else {
+    btn.textContent = '';
+  }
+}
+
+function mostrarHeroIndice(idx) {
+  if (!heroLayout) return;
+  const sDef = SERIES_TIPO.find(s => s.key === serieAtual);
+  const { x, y, periodos, valores } = heroLayout;
+  const v = valores[idx];
+  const tip = document.getElementById('hero-tip');
+  const crosshair = document.getElementById('hero-crosshair');
+  if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; return; }
+  const xi = x(idx);
+  crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+  tip.innerHTML = `<span class="t-name">${competenciaLabel(periodos[idx])}</span><div class="t-row"><span>${sDef.label}</span><span class="t-val">${sDef.fmt(v)}</span></div>`;
+  tip.style.opacity = 1;
+  const rect = document.getElementById('hero-catcher').getBoundingClientRect();
+  const xPix = xi / heroLayout.largura * (rect.width || heroLayout.largura);
+  let left = xPix + 12, top = 10;
+  if (left + 190 > (rect.width || heroLayout.largura)) left = xPix - 190 - 12;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+
+function setupHeroHover() {
+  const catcher = document.getElementById('hero-catcher');
+  catcher.addEventListener('pointermove', ev => {
+    if (!heroLayout) return;
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.round(frac * (heroLayout.periodos.length - 1));
+    mostrarHeroIndice(idx);
+  });
+  catcher.addEventListener('pointerleave', () => {
+    document.getElementById('hero-tip').style.opacity = 0;
+    const c = document.getElementById('hero-crosshair');
+    if (c) c.style.opacity = 0;
+  });
+}
+
+function renderHeroTable(sDef) {
+  if (!heroLayout) { document.getElementById('hero-table').innerHTML = ''; return; }
+  const { periodos, valores } = heroLayout;
+  const rows = periodos.map((p,i) => `<tr><td>${competenciaLabel(p)}</td><td>${sDef.fmt(valores[i])}</td></tr>`).reverse().join('');
+  document.getElementById('hero-table').innerHTML = `<table class="datatable"><thead><tr><th>Competência</th><th>${sDef.label}</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderCategoriaPills() {
+  const wrap = document.getElementById('categoria-pills');
+  wrap.innerHTML = CATEGORIAS.map(c => `<button class="pill${c.key===categoriaAtual?' active':''}" data-key="${c.key}" style="--pill-hue:var(--${c.hue})">${c.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    categoriaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderHero();
+  }));
+}
+function renderSeriePills() {
+  const wrap = document.getElementById('serie-pills');
+  wrap.innerHTML = SERIES_TIPO.map(s => `<button class="pill${s.key===serieAtual?' active':''}" data-key="${s.key}">${s.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    serieAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderHero();
+  }));
+}
+function renderWindowPills() {
+  const wrap = document.getElementById('window-pills');
+  wrap.innerHTML = JANELAS.map(j => `<button class="pill${j.key===janelaAtual?' active':''}" data-key="${j.key}">${j.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    janelaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderHero();
+  }));
+}
+
+// ---------- mini-chart genérico (usado no drawer de UF) ----------
+function renderMiniChart(svgEl, catcher, tip, periodos, valores, cor, fmt, titulo) {
+  const largura = 460, altura = 200;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+  const pontos = [];
+  for (let i = 0; i < periodos.length; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) {
+    svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)" font-size="13">dado insuficiente</text>';
+    if (catcher) catcher.style.display = 'none';
+    return null;
+  }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const n = periodos.length;
+  const x = i => 10 + i / (n - 1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+  const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', cor);
+  lineEl.setAttribute('stroke-width', '2.4'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svgEl.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 5);
+  dot.setAttribute('fill', cor); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 1.8);
+  svgEl.appendChild(dot);
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+  const hoverDot = svgns('circle');
+  hoverDot.setAttribute('r', 4.5); hoverDot.setAttribute('fill', cor);
+  hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.8);
+  hoverDot.style.opacity = 0;
+  svgEl.appendChild(hoverDot);
+
+  function mostrarIndice(idx) {
+    const v = valores[idx];
+    if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; return; }
+    const xi = x(idx), yi = y(v);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    hoverDot.setAttribute('cx', xi); hoverDot.setAttribute('cy', yi); hoverDot.style.opacity = 1;
+    tip.innerHTML = `<span class="t-name">${competenciaLabel(periodos[idx])}</span><div class="t-row"><span>${titulo}</span><span class="t-val">${fmt(v)}</span></div>`;
+    tip.style.opacity = 1;
+    const rect = catcher.getBoundingClientRect();
+    const xPix = xi / largura * (rect.width || largura);
+    let left = xPix + 10;
+    if (left + 150 > (rect.width || largura)) left = xPix - 150 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '-4px';
+  }
+  if (!catcher) return mostrarIndice;
+  catcher.style.display = 'block';
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    mostrarIndice(Math.min(n-1, Math.max(0, Math.round(frac * (n-1)))));
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; };
+  return mostrarIndice;
+}
+
+// ---------- ranking por UF ----------
+let ufCategoriaAtual = 'rj';
+let ufSelecionada = '';
+const CAMPO_UF = { rj: 'hist_rj', extrajudicial: 'hist_extrajudicial', falencia: 'hist_falencia' };
+
+// valor da UF na competência mais recente (índice fixo, igual pra todas as
+// UFs) — nunca "último valor não-nulo" por UF: isso misturaria meses
+// diferentes entre estados (um UF sem processo no mês corrente tem null,
+// não deve reaparecer com o valor de um mês anterior). null vira 0.
+function valorAtualUf(u, campo) {
+  const arr = u[campo] || [];
+  const v = arr[arr.length - 1];
+  return v == null ? 0 : v;
+}
+function renderUfPills() {
+  const wrap = document.getElementById('uf-metric-pills');
+  wrap.innerHTML = CATEGORIAS.map(c => `<button class="pill${c.key===ufCategoriaAtual?' active':''}" data-key="${c.key}" style="--pill-hue:var(--${c.hue})">${c.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    ufCategoriaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderUfBars();
+  }));
+}
+function renderUfBars() {
+  const catDef = CATEGORIAS.find(c => c.key === ufCategoriaAtual);
+  const campo = CAMPO_UF[ufCategoriaAtual];
+  const dados = DADOS.ufs
+    .map(u => ({ uf: u.uf, regiao: u.regiao, valor: valorAtualUf(u, campo) }))
+    .filter(d => d.valor > 0)
+    .sort((a,b) => b.valor - a.valor);
+  const cont = document.getElementById('bars-uf');
+  if (!dados.length) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis.</p>'; return; }
+  const total = dados.reduce((s,d) => s + d.valor, 0);
+  const max = Math.max(...dados.map(d => d.valor), 1);
+  cont.innerHTML = `<p class="card-sub" style="margin-bottom:.5rem;">${competenciaLabel(DADOS.meta.competencia_max)} · Brasil: ${fmtContagem(total)} processos</p>` +
+    dados.map((d, i) => {
+      const pct = d.valor / max * 100;
+      const hi = d.uf === ufSelecionada;
+      return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-uf="${d.uf}" style="cursor:pointer;" aria-label="#${i+1} ${d.uf}: ${fmtContagem(d.valor)}">
+        <span class="b-label"><span class="b-rank">#${i+1}</span>${d.uf} <span style="color:var(--ink-muted);">· ${d.regiao||''}</span></span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--${catDef.hue});"></div></div>
+        <span class="b-value">${fmtContagem(d.valor)}</span>
+      </div>`;
+    }).join('');
+  cont.querySelectorAll('[data-uf]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheUF(el.dataset.uf));
+  });
+}
+
+// ---------- drawer de detalhe da UF ----------
+function captionVariacao(valores, ultimoIdx) {
+  if (ultimoIdx < 1) return '';
+  const atual = valores[ultimoIdx];
+  const anterior = valores[ultimoIdx - 1];
+  const anoAnterior = ultimoIdx >= 12 ? valores[ultimoIdx - 12] : null;
+  const partes = [];
+  if (anterior != null) {
+    const delta = atual - anterior;
+    const pct = anterior !== 0 ? (atual / anterior - 1) * 100 : null;
+    partes.push(`mês anterior: ${delta >= 0 ? '+' : ''}${fmtContagem(delta)}${pct != null ? ` (${pct >= 0 ? '+' : ''}${fmtPct(pct,0)})` : ''}`);
+  }
+  if (anoAnterior != null) {
+    const pct12 = anoAnterior !== 0 ? (atual / anoAnterior - 1) * 100 : null;
+    if (pct12 != null) partes.push(`12M: ${pct12 >= 0 ? '+' : ''}${fmtPct(pct12,0)}`);
+  }
+  return partes.length ? `<div class="card-sub" style="margin-top:.15rem;">Δ ${partes.join(' · ')}</div>` : '';
+}
+
+function participacaoNacionalHtml(uf) {
+  const ultimoIdx = DADOS.periodos.length - 1;
+  const u = ufPorSigla.get(uf);
+  const itens = CATEGORIAS.map(catDef => {
+    const v = valorAtualUf(u, CAMPO_UF[catDef.key]);
+    const cat = categoriaPorKey.get(catDef.key);
+    const totalNacional = cat.hist_valor[ultimoIdx];
+    if (!v || !totalNacional) return null;
+    const pct = v / totalNacional * 100;
+    const ordenado = DADOS.ufs
+      .map(x => ({ uf: x.uf, v: valorAtualUf(x, CAMPO_UF[catDef.key]) }))
+      .filter(x => x.v > 0)
+      .sort((a,b) => b.v - a.v);
+    const rank = ordenado.findIndex(x => x.uf === uf) + 1;
+    return `${catDef.label}: ${fmtPct(pct,1)} do Brasil (#${rank} de ${ordenado.length})`;
+  }).filter(Boolean);
+  if (!itens.length) return '';
+  return `<p class="card-sub" style="margin-top:.5rem;">Participação no total nacional em ${competenciaLabel(DADOS.meta.competencia_max)}: ${itens.join(' · ')}</p>`;
+}
+
+function abrirDetalheUF(uf) {
+  const u = ufPorSigla.get(uf);
+  if (!u) return;
+  ufSelecionada = uf;
+  renderUfBars();
+  document.getElementById('drawer-empty').style.display = 'none';
+  const body = document.getElementById('drawer-body');
+  body.classList.add('open');
+
+  const blocos = CATEGORIAS.map(catDef => {
+    const valores = u[CAMPO_UF[catDef.key]] || [];
+    const periodos = DADOS.periodos;
+    let ultimoIdx = -1;
+    for (let i = valores.length - 1; i >= 0; i--) if (valores[i] != null) { ultimoIdx = i; break; }
+    const uid = catDef.key + '_' + Math.random().toString(36).slice(2,8);
+    const n = periodos.length;
+    const idxs = n <= 2 ? [0, Math.max(n-1,0)] : [0, Math.round((n-1)/2), n-1];
+    const ticks = n ? idxs.map(i => `<span>${competenciaLabel(periodos[i])}</span>`).join('') : '';
+    const asof = ultimoIdx >= 0
+      ? `<button class="hc-asof" data-uid="${uid}">* dado mais recente: ${competenciaLabel(periodos[ultimoIdx])}</button>` : '';
+    const variacao = captionVariacao(valores, ultimoIdx);
+    const html = `<div class="hist-card">
+      <div class="hc-title">${catDef.label}</div>
+      <div class="hc-value">${ultimoIdx>=0 ? fmtContagem(valores[ultimoIdx]) : '—'}</div>
+      ${variacao}
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="mc_${uid}"></svg>
+        <div class="mc-catcher" id="cat_${uid}"></div>
+        <div class="hover-tip mc-tip" id="tip_${uid}"></div>
+      </div>
+      <div class="x-ticks">${ticks}</div>
+      ${asof}
+    </div>`;
+    return { html, uid, periodos, valores, fmt: v => fmtContagem(v), titulo: catDef.label, cor: HUE_BASE[catDef.hue], ultimoIdx };
+  });
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${uf}</h2>
+      <span class="badge">${u.regiao || ''}</span>
+    </div>
+    <div class="hist-grid">${blocos.map(b => b.html).join('')}</div>
+    ${participacaoNacionalHtml(uf)}`;
+
+  blocos.forEach(b => {
+    const svgEl = document.getElementById('mc_' + b.uid);
+    const catcher = document.getElementById('cat_' + b.uid);
+    const tip = document.getElementById('tip_' + b.uid);
+    const mostrarIndice = renderMiniChart(svgEl, catcher, tip, b.periodos, b.valores, b.cor, b.fmt, b.titulo);
+    const botao = document.querySelector(`.hc-asof[data-uid="${b.uid}"]`);
+    if (botao && mostrarIndice) botao.addEventListener('click', () => mostrarIndice(b.ultimoIdx));
+  });
+  document.getElementById('drawer-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- table toggle ----------
+function setupTableToggle() {
+  document.getElementById('hero-table-btn').addEventListener('click', e => {
+    const t = document.getElementById('hero-table');
+    t.classList.toggle('open');
+    e.target.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+  });
+}
+
+// ---------- init ----------
+function init() {
+  renderHeader();
+  if (!DADOS.periodos.length) return;
+  renderCategoriaPills();
+  renderSeriePills();
+  renderWindowPills();
+  renderHero();
+  setupHeroHover();
+  setupTableToggle();
+  renderUfPills();
+  renderUfBars();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderHero, 120); });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

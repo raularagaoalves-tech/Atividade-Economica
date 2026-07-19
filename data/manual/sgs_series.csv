@@ -1,0 +1,74 @@
+# Séries do SGS/BACEN carregadas pelo sistema (api.bcb.gov.br).
+# grupo : CREDITO_SETOR | CREDITO_MACRO | CREDITO_PIB | INADIMPLENCIA | CONCESSAO | JUROS | ATIVIDADE
+# nivel : SETOR (macro-setor, base da participação %) | SUBSETOR (abertura) | (vazio p/ demais grupos)
+# setor / subsetor : hierarquia analítica (alinhada às séries 22059-22070 do BCB)
+codigo;nome;grupo;nivel;setor;subsetor;unidade
+22027;Agropecuária;CREDITO_SETOR;SETOR;AGROPECUARIA;;R$ milhões
+22043;Indústria total;CREDITO_SETOR;SETOR;INDUSTRIA;;R$ milhões
+22044;Serviços total;CREDITO_SETOR;SETOR;SERVICOS;;R$ milhões
+22042;Outros;CREDITO_SETOR;SETOR;OUTROS;;R$ milhões
+22030;Indústria de construção;CREDITO_SETOR;SUBSETOR;INDUSTRIA;CONSTRUCAO;R$ milhões
+22034;Serviços industriais de utilidade pública (SIUP);CREDITO_SETOR;SUBSETOR;INDUSTRIA;SIUP;R$ milhões
+27722;Indústria de química e farmacêutica;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27723;Indústria de bens de capital;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27724;Indústria automobilística;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27725;Indústria de obras de infraestrutura;CREDITO_SETOR;SUBSETOR;INDUSTRIA;INFRAESTRUTURA;R$ milhões
+27726;Indústria de outros bens de consumo duráveis;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27727;Indústria de embalagens;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27728;Indústria de bens de consumo não duráveis;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27743;Indústria de alimentos;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27744;Indústria de açúcar;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27745;Indústria de têxtil, vestuário, couro e calçados;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27746;Indústria de papel e celulose;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27747;Indústria de petróleo, gás e álcool;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27748;Indústria de metalurgia e siderurgia;CREDITO_SETOR;SUBSETOR;INDUSTRIA;TRANSFORMACAO;R$ milhões
+27749;Indústria de mineração;CREDITO_SETOR;SUBSETOR;INDUSTRIA;EXTRATIVA;R$ milhões
+22036;Comércio;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+22037;Transportes;CREDITO_SETOR;SUBSETOR;SERVICOS;TRANSPORTES;R$ milhões
+22039;Administração pública;CREDITO_SETOR;SUBSETOR;SERVICOS;ADM_PUBLICA;R$ milhões
+22041;Outros serviços;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+27729;Transportes - via terrestre (carga e passageiro);CREDITO_SETOR;SUBSETOR;SERVICOS;TRANSPORTES;R$ milhões
+27730;Transportes - meios aquaviário e aéreo;CREDITO_SETOR;SUBSETOR;SERVICOS;TRANSPORTES;R$ milhões
+27731;Transportes - dutoviário;CREDITO_SETOR;SUBSETOR;SERVICOS;TRANSPORTES;R$ milhões
+27732;Comércio varejo - bens não duráveis;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27733;Comércio varejo - bens duráveis;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27734;Comércio atacado - bens duráveis e não-duráveis;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27735;Comércio geral - veículos automotores;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27736;Comércio geral - bens intermediários;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27737;Comércio geral - bens de capital;CREDITO_SETOR;SUBSETOR;SERVICOS;COMERCIO;R$ milhões
+27738;Serviços imobiliários;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+27739;Serviços de informação e comunicação;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+27740;Demais serviços prestados às famílias;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+27741;Demais serviços prestados às empresas;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+27742;Serviços financeiros;CREDITO_SETOR;SUBSETOR;SERVICOS;OUTROS_SERVICOS;R$ milhões
+20539;Saldo da carteira de crédito - Total;CREDITO_MACRO;;;;R$ milhões
+20540;Saldo da carteira de crédito - PJ;CREDITO_MACRO;;;;R$ milhões
+20541;Saldo da carteira de crédito - PF;CREDITO_MACRO;;;;R$ milhões
+20542;Saldo recursos livres - Total;CREDITO_MACRO;;;;R$ milhões
+20543;Saldo recursos livres - PJ;CREDITO_MACRO;;;;R$ milhões
+20570;Saldo recursos livres - PF;CREDITO_MACRO;;;;R$ milhões
+20593;Saldo recursos direcionados - Total;CREDITO_MACRO;;;;R$ milhões
+20594;Saldo recursos direcionados - PJ;CREDITO_MACRO;;;;R$ milhões
+20606;Saldo recursos direcionados - PF;CREDITO_MACRO;;;;R$ milhões
+20622;Crédito total / PIB;CREDITO_PIB;;;;%
+20623;Crédito PJ / PIB;CREDITO_PIB;;;;%
+20624;Crédito PF / PIB;CREDITO_PIB;;;;%
+21082;Inadimplência - Total;INADIMPLENCIA;;;;%
+21083;Inadimplência - PJ;INADIMPLENCIA;;;;%
+21084;Inadimplência - PF;INADIMPLENCIA;;;;%
+21085;Inadimplência recursos livres - Total;INADIMPLENCIA;;;;%
+21086;Inadimplência recursos livres - PJ;INADIMPLENCIA;;;;%
+21112;Inadimplência recursos livres - PF;INADIMPLENCIA;;;;%
+20631;Concessões de crédito - Total;CONCESSAO;;;;R$ milhões
+20632;Concessões de crédito - PJ;CONCESSAO;;;;R$ milhões
+20633;Concessões de crédito - PF;CONCESSAO;;;;R$ milhões
+20714;Taxa média de juros - Total;JUROS;;;;% a.a.
+20715;Taxa média de juros - PJ;JUROS;;;;% a.a.
+20716;Taxa média de juros - PF;JUROS;;;;% a.a.
+24363;IBC-Br;ATIVIDADE;;;;índice
+24364;IBC-Br com ajuste sazonal;ATIVIDADE;;;;índice
+25406;IBCR - Região Norte;ATIVIDADE;;;;índice
+25388;IBCR - Região Nordeste;ATIVIDADE;;;;índice
+25393;IBCR - Região Sudeste;ATIVIDADE;;;;índice
+25400;IBCR - Região Sul;ATIVIDADE;;;;índice
+25381;IBCR - Região Centro-Oeste;ATIVIDADE;;;;índice

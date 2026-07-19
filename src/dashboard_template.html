@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Atividade Econômica — Visão Crédito</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:        #070a12;
+    --surface:     #10141f;
+    --surface-2:   #161d2e;
+    --line:        #232b40;
+    --line-soft:   #1a2233;
+    --ink:         #eef2f9;
+    --ink-soft:    #8ea0bd;
+    --ink-muted:   #7583a0;
+
+    --teal:        #0d9488;   /* volume / saldo */
+    --teal-soft:   rgba(13,148,136,.14);
+    --amber:       #d97706;   /* custo do crédito / taxa */
+    --amber-soft:  rgba(217,119,6,.14);
+    --rose:        #f43f5e;   /* risco / inadimplência */
+    --rose-soft:   rgba(244,63,94,.14);
+    --violet:      #8b5cf6;   /* tempo / prazo */
+    --violet-soft: rgba(139,92,246,.14);
+    --green:       #059669;
+    --red:         #dc2626;
+
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--teal-soft); color: var(--ink); }
+
+  /* ---- ambient background: faint moving grid ---- */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(13,148,136,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,148,136,.055) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+    animation: drift 34s linear infinite;
+  }
+  @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 48px 96px, 48px 96px; } }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .35;
+    width: 46vw; height: 46vw; border-radius: 50%;
+    top: -18vw; right: -12vw;
+    background: radial-gradient(circle, rgba(13,148,136,.5), transparent 70%);
+  }
+  @media (prefers-reduced-motion: reduce) { .bg-grid { animation: none; } }
+
+  main { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 2.25rem 2rem 5rem; }
+
+  /* ---- header ---- */
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: .75rem 1.5rem;
+    padding-bottom: 1.6rem; margin-bottom: 1.9rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: .7rem; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-soft), 0 0 14px 2px rgba(13,148,136,.65);
+    display: inline-block; transform: translateY(-1px);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .brand .dot { animation: none; } }
+  h1 {
+    font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    margin: 0; color: var(--ink);
+  }
+  .eyebrow {
+    font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-muted); margin: 0 0 .3rem;
+  }
+  .as-of {
+    font-family: var(--mono); font-size: .78rem; color: var(--ink-soft);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .as-of b { color: var(--ink); font-weight: 600; }
+
+  /* ---- KPI row ---- */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+  @media (max-width: 980px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-left: 3px solid var(--kpi-hue, var(--teal));
+    border-radius: var(--radius); padding: 1.05rem 1.15rem;
+    box-shadow: 0 1px 0 rgba(255,255,255,.02) inset, 0 10px 30px -18px rgba(0,0,0,.6);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .kpi:hover { transform: translateY(-2px); box-shadow: 0 14px 34px -16px rgba(0,0,0,.65); }
+  .kpi .label { font-size: .68rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .5rem; }
+  .kpi .value { font-family: var(--sans); font-size: 1.7rem; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+  .kpi .unit { font-size: 1rem; font-weight: 500; color: var(--ink-soft); margin-left: .2rem; }
+  .kpi .delta { margin-top: .4rem; font-family: var(--mono); font-size: .78rem; display: flex; align-items: center; gap: .3rem; }
+  .kpi .delta.up { color: var(--green); }
+  .kpi .delta.down { color: var(--red); }
+  .kpi .delta.flat { color: var(--ink-muted); }
+  .kpi .kpi-caption { font-size: .68rem; line-height: 1.35; color: var(--ink-muted); margin-top: .4rem; }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; margin-bottom: .9rem; }
+  .card-title { font-size: .95rem; font-weight: 700; color: var(--ink); margin: 0 0 .2rem; }
+  .card-sub { font-size: .78rem; color: var(--ink-muted); }
+  .legend-row { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: .45rem; font-size: .74rem; color: var(--ink-soft); font-family: var(--mono); }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+  .legend-swatch.area { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ---- pills ---- */
+  .pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); }
+  .pill {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+    padding: .38rem .8rem; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active { background: var(--teal); color: #04130f; }
+  .pill:focus-visible, .tbtn:focus-visible, button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .tbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    font-family: var(--sans); font-size: .72rem; font-weight: 600; padding: .35rem .7rem; border-radius: 8px; cursor: pointer;
+  }
+  .tbtn:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  /* ---- hero chart ---- */
+  .hero-panes { position: relative; }
+  .pane-wrap { position: relative; }
+  .pane-title { font-family: var(--mono); font-size: .72rem; color: var(--ink-muted); margin: .1rem 0 .2rem 2px; letter-spacing: .04em; }
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--line); stroke-width: 1; }
+  .crosshair-line { stroke: var(--ink-soft); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: 0; }
+  .end-dot { pointer-events: none; }
+  .hover-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .x-ticks { display: flex; justify-content: space-between; margin: .3rem 2px 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-muted); }
+
+  .hover-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(11,15,26,.96); border: 1px solid var(--line); border-radius: 10px;
+    padding: .6rem .75rem; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+    box-shadow: 0 12px 28px -12px rgba(0,0,0,.7); opacity: 0; transition: opacity .1s;
+    min-width: 168px; white-space: nowrap;
+  }
+  .hover-tip .t-date { color: var(--ink); font-weight: 700; margin-bottom: .35rem; display: block; letter-spacing: .03em; }
+  .hover-tip .t-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .15rem; }
+  .hover-tip .t-key { display: flex; align-items: center; gap: .4rem; color: var(--ink-soft); }
+  .hover-tip .t-key i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .hover-tip .t-val { color: var(--ink); font-weight: 700; }
+
+  /* ---- detail grid ---- */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin-top: .3rem; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  .bar-row { display: grid; grid-template-columns: 168px 1fr 64px; align-items: center; gap: .6rem; padding: .32rem 0; position: relative; }
+  .bar-row .b-label {
+    font-size: .74rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .bar-track { position: relative; height: 16px; background: var(--surface-2); border-radius: 4px; overflow: visible; }
+  .bar-fill {
+    position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px 6px 6px 4px;
+    transition: width .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar-row .b-value { font-family: var(--mono); font-size: .76rem; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  .bar-row:hover .b-label { color: var(--ink); }
+  .bar-row:hover .bar-track { box-shadow: 0 0 0 1px var(--line); }
+
+  /* ---- table view ---- */
+  .table-view { display: none; margin-top: .8rem; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); padding-top: .6rem; }
+  .table-view.open { display: block; }
+  table.datatable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  table.datatable th { text-align: left; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); padding: .4rem .5rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  table.datatable td { padding: .38rem .5rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.datatable td:first-child { font-family: var(--sans); color: var(--ink); }
+
+  footer.foot { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .74rem; color: var(--ink-muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1.5rem; }
+  footer.foot code { font-family: var(--mono); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">Sistema Atividade Econômica</p>
+        <div class="brand"><span class="dot"></span><h1>Visão Crédito — Carteira Consolidada</h1></div>
+      </div>
+      <div class="as-of">SÉRIE BACEN SGS · COMPETÊNCIA <b id="as-of-value">—</b></div>
+    </header>
+
+    <section class="kpi-row" id="kpi-row" aria-label="Indicadores principais"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Saldo da carteira &amp; taxa média mensal</p>
+          <p class="card-sub">Crédito total do Sistema Financeiro Nacional (BACEN SGS) — saldo em R$ e taxa média de juros, mês a mês</p>
+        </div>
+        <div class="pills" id="window-pills" role="group" aria-label="Janela de tempo"></div>
+      </div>
+      <div class="legend-row" style="margin-bottom:.9rem;">
+        <span class="legend-item"><span class="legend-swatch area" style="background:var(--teal)"></span>Saldo consolidado</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span>Taxa média mensal (% a.a.)</span>
+        <button class="tbtn" id="hero-table-btn" style="margin-left:auto;">Ver tabela</button>
+      </div>
+      <div class="hero-panes">
+        <div class="pane-wrap" id="pane-saldo">
+          <p class="pane-title">SALDO CONSOLIDADO</p>
+          <svg class="chart" id="svg-saldo"></svg>
+        </div>
+        <div class="pane-wrap" id="pane-taxa" style="margin-top:.6rem;">
+          <p class="pane-title">TAXA MÉDIA MENSAL</p>
+          <svg class="chart" id="svg-taxa"></svg>
+          <div class="x-ticks" id="hero-xticks"></div>
+        </div>
+        <div class="hover-catcher" id="hero-catcher"></div>
+        <div class="hover-tip" id="hero-tip"></div>
+      </div>
+      <div class="table-view" id="hero-table"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">5 maiores carteiras de crédito, por modalidade</p>
+          <p class="card-sub">Saldo mensal (R$ milhões) — família "recursos livres/direcionados por produto" do BACEN SGS, cobre PF e PJ em geral (não só micro/pequena/MEI). "Outros" é o residual: total nacional menos as 5 maiores.</p>
+        </div>
+      </div>
+      <div class="legend-row" id="carteiras-legend" style="margin-bottom:.7rem;"></div>
+      <div class="pane-wrap">
+        <svg class="chart" id="svg-carteiras" style="height:280px;"></svg>
+        <div class="hover-catcher" id="carteiras-catcher"></div>
+        <div class="hover-tip" id="carteiras-tip"></div>
+      </div>
+      <div class="x-ticks" id="carteiras-xticks"></div>
+    </section>
+
+    <section class="detail-grid">
+      <div class="card" id="card-juros">
+        <div class="card-head">
+          <div><p class="card-title">Taxa de juros por modalidade</p><p class="card-sub">Pessoa jurídica, última competência — % a.a.</p></div>
+          <button class="tbtn" data-table-toggle="juros">Ver tabela</button>
+        </div>
+        <div id="bars-juros"></div>
+        <div class="table-view" id="table-juros"></div>
+      </div>
+
+      <div class="card" id="card-inad">
+        <div class="card-head">
+          <div><p class="card-title">Inadimplência por modalidade</p><p class="card-sub">Pessoa jurídica, última competência — %</p></div>
+          <button class="tbtn" data-table-toggle="inad">Ver tabela</button>
+        </div>
+        <div id="bars-inad"></div>
+        <div class="table-view" id="table-inad"></div>
+      </div>
+
+      <div class="card" id="card-prazo">
+        <div class="card-head">
+          <div><p class="card-title">Prazo médio por modalidade</p><p class="card-sub">Carteira, última competência — meses</p></div>
+          <button class="tbtn" data-table-toggle="prazo">Ver tabela</button>
+        </div>
+        <div id="bars-prazo"></div>
+        <div class="table-view" id="table-prazo"></div>
+      </div>
+
+      <div class="card" id="card-porte">
+        <div class="card-head">
+          <div><p class="card-title">Saldo por porte de PJ &amp; MEI</p><p class="card-sub">Última competência trimestral — R$ milhões</p></div>
+          <button class="tbtn" data-table-toggle="porte">Ver tabela</button>
+        </div>
+        <div id="bars-porte"></div>
+        <div class="table-view" id="table-porte"></div>
+      </div>
+
+      <div class="card" id="card-concessao">
+        <div class="card-head">
+          <div><p class="card-title">Concessões de crédito por modalidade</p><p class="card-sub">Novas operações no mês, última competência — R$ milhões</p></div>
+          <button class="tbtn" data-table-toggle="concessao">Ver tabela</button>
+        </div>
+        <div id="bars-concessao"></div>
+        <div class="table-view" id="table-concessao"></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>Fonte: <code>BACEN SGS</code> — série "crédito detalhado" descoberta via catálogo de dados abertos do BCB.</span>
+      <span>Modalidades de amostra muito pequena (ex. nichos MEI) foram excluídas dos rankings para evitar taxas extremas não representativas.</span>
+    </footer>
+  </main>
+
+<script>
+const DADOS = __DADOS_JSON__;
+
+const COR = {
+  teal: getVar('--teal'), tealSoft: 'rgba(13,148,136,.16)',
+  amber: getVar('--amber'), rose: getVar('--rose'), violet: getVar('--violet'), green: getVar('--green'),
+  ink: getVar('--ink'), inkSoft: getVar('--ink-soft'), inkMuted: getVar('--ink-muted'),
+  line: getVar('--line'), surface: getVar('--surface'),
+};
+function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- formatting ----------
+function competenciaLabel(c) {
+  const s = String(c);
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return `${meses[parseInt(s.slice(4,6),10)-1]}/${s.slice(2,4)}`;
+}
+function fmtReaisCompacto(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' tri';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' bi';
+  return v.toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' mi';
+}
+function fmtPct(v, casas=2) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function fmtNum(v) { return v == null ? '—' : v.toLocaleString('pt-BR'); }
+function fmtVarPct(v) { return v == null ? '—' : (v >= 0 ? '+' : '') + fmtPct(v, 1); }
+function fmtVarPP(v) { return v == null ? '—' : (v >= 0 ? '+' : '') + v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' p.p.'; }
+
+// competências de referência (mês anterior, dez do ano anterior, 12 meses
+// atrás) a partir da competência mais recente da série — cuidado com virada
+// de ano (mês anterior de janeiro é dezembro do ano anterior, não "mês 00")
+function competenciasReferencia(comp) {
+  const ano = Math.floor(comp / 100), mes = comp % 100;
+  return {
+    mesAnterior: mes === 1 ? (ano - 1) * 100 + 12 : comp - 1,
+    dezAnoAnterior: (ano - 1) * 100 + 12,
+    doze: comp - 100,
+  };
+}
+// variação percentual (nível, ex. saldo) entre a competência atual e cada
+// competência de referência, buscando por competência exata (tolera buracos)
+function variacoesPct(serie, campo) {
+  if (!serie || serie.length < 2) return { mensal: null, ano: null, doze: null };
+  const porCompetencia = new Map(serie.map(r => [r.competencia, r[campo]]));
+  const atualRow = serie[serie.length - 1];
+  const atual = atualRow[campo];
+  const ref = competenciasReferencia(atualRow.competencia);
+  const calc = compRef => {
+    const v = porCompetencia.get(compRef);
+    return (atual == null || v == null) ? null : Math.round((100 * atual / v - 100) * 10) / 10;
+  };
+  return { mensal: calc(ref.mesAnterior), ano: calc(ref.dezAnoAnterior), doze: calc(ref.doze) };
+}
+// variação em pontos percentuais (taxa, ex. juros/inadimplência) — diferença
+// direta, não razão
+function variacoesPP(serie, campo) {
+  if (!serie || serie.length < 2) return { mensal: null, ano: null, doze: null };
+  const porCompetencia = new Map(serie.map(r => [r.competencia, r[campo]]));
+  const atualRow = serie[serie.length - 1];
+  const atual = atualRow[campo];
+  const ref = competenciasReferencia(atualRow.competencia);
+  const calc = compRef => {
+    const v = porCompetencia.get(compRef);
+    return (atual == null || v == null) ? null : Math.round((atual - v) * 100) / 100;
+  };
+  return { mensal: calc(ref.mesAnterior), ano: calc(ref.dezAnoAnterior), doze: calc(ref.doze) };
+}
+function maxHistorico(serie, campo) {
+  let melhor = null;
+  for (const r of serie || []) {
+    if (r[campo] == null) continue;
+    if (!melhor || r[campo] > melhor.valor) melhor = { valor: r[campo], competencia: r.competencia };
+  }
+  return melhor;
+}
+
+// ---------- KPI row ----------
+function deltaChip(value, unidade, invertGood) {
+  if (value == null) return '<span class="delta flat">sem comparação</span>';
+  const up = value > 0;
+  const good = invertGood ? !up : up;
+  const cls = value === 0 ? 'flat' : (good ? 'up' : 'down');
+  const seta = value === 0 ? '→' : (up ? '↑' : '↓');
+  return `<span class="delta ${cls}">${seta} ${Math.abs(value).toLocaleString('pt-BR',{maximumFractionDigits:2})}${unidade} vs. 12M</span>`;
+}
+function renderKPIs() {
+  const k = DADOS.kpi;
+  const serie = DADOS.serie_mensal;
+  const varSaldo = variacoesPct(serie, 'saldo_total');
+  const varJuros = variacoesPP(serie, 'juros_total');
+  const varInad = variacoesPP(serie, 'inadimplencia_total');
+  const maxCredPib = maxHistorico(serie, 'credito_pib_pct');
+
+  const cards = [
+    {
+      label: 'Saldo total da carteira', value: fmtReaisCompacto(k.saldo_total), delta: deltaChip(k.saldo_var_12m_pct, '%', false), hue: 'var(--teal)',
+      caption: `M/M ${fmtVarPct(varSaldo.mensal)} · no ano ${fmtVarPct(varSaldo.ano)} · 12M ${fmtVarPct(varSaldo.doze)}`,
+    },
+    {
+      label: 'Taxa média mensal', value: fmtPct(k.juros_total, 2), delta: deltaChip(k.juros_var_12m_pp, ' p.p.', false), hue: 'var(--amber)',
+      caption: `M/M ${fmtVarPP(varJuros.mensal)} · no ano ${fmtVarPP(varJuros.ano)} · 12M ${fmtVarPP(varJuros.doze)}`,
+    },
+    {
+      label: 'Inadimplência total', value: fmtPct(k.inadimplencia_total, 2), delta: deltaChip(k.inadimplencia_var_12m_pp, ' p.p.', true), hue: 'var(--rose)',
+      caption: `M/M ${fmtVarPP(varInad.mensal)} · no ano ${fmtVarPP(varInad.ano)} · 12M ${fmtVarPP(varInad.doze)}`,
+    },
+    {
+      label: 'Crédito / PIB', value: fmtPct(k.credito_pib_pct, 1), delta: '<span class="delta flat">nível estrutural</span>', hue: 'var(--violet)',
+      caption: maxCredPib ? `máx. histórico ${fmtPct(maxCredPib.valor, 1)} (${competenciaLabel(maxCredPib.competencia)})` : 'sem histórico disponível',
+    },
+  ];
+  const row = document.getElementById('kpi-row');
+  row.innerHTML = cards.map(c => `
+    <div class="kpi" style="--kpi-hue:${c.hue}">
+      <div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div>${c.delta}</div>
+      <div class="kpi-caption">${c.caption}</div>
+    </div>`).join('');
+}
+
+// ---------- hero chart (two linked panes) ----------
+const JANELAS = [
+  { key: 'ano', label: 'Ano' }, { key: '12', label: '12M' }, { key: '24', label: '24M' },
+  { key: '36', label: '36M' }, { key: '48', label: '48M' }, { key: '60', label: '60M' },
+];
+let janelaAtual = '24';
+
+function filtrarSerie(janela) {
+  const s = DADOS.serie_mensal;
+  if (!s.length) return [];
+  if (janela === 'ano') {
+    const ano = String(s[s.length-1].competencia).slice(0,4);
+    return s.filter(r => String(r.competencia).slice(0,4) === ano);
+  }
+  const n = parseInt(janela, 10);
+  return s.slice(Math.max(0, s.length - n));
+}
+
+function escala(valores, altura, margemTopo=10, margemBase=6) {
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const span = (max - min) || 1;
+  return v => altura - margemBase - ((v - min) / span) * (altura - margemTopo - margemBase);
+}
+
+function desenharPane(svgEl, dados, campo, cor, tipo) {
+  const largura = svgEl.parentElement.clientWidth || 900;
+  const altura = tipo === 'area' ? 190 : 110;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+  const n = dados.length;
+  const padL = 6, padR = 6;
+  const x = i => padL + (i/(Math.max(n-1,1))) * (largura - padL - padR);
+  const valores = dados.map(d => d[campo]).filter(v => v != null);
+  const y = escala(valores, altura);
+
+  // gridlines (2 horizontais, recessivas)
+  for (const frac of [0.25, 0.75]) {
+    const gl = svgns('line');
+    const yy = altura*frac;
+    gl.setAttribute('x1',padL); gl.setAttribute('x2',largura-padR);
+    gl.setAttribute('y1',yy); gl.setAttribute('y2',yy);
+    gl.setAttribute('class','gridline');
+    svgEl.appendChild(gl);
+  }
+
+  const pts = dados.map((d,i) => [x(i), d[campo]==null ? null : y(d[campo])]);
+  const validPts = pts.filter(p => p[1] !== null);
+
+  if (tipo === 'area') {
+    const base = altura - 6;
+    let path = `M ${validPts[0][0]},${base} `;
+    path += validPts.map(p => `L ${p[0]},${p[1]}`).join(' ');
+    path += ` L ${validPts[validPts.length-1][0]},${base} Z`;
+    const areaEl = svgns('path');
+    areaEl.setAttribute('d', path); areaEl.setAttribute('fill', cor); areaEl.setAttribute('opacity','0.12');
+    areaEl.setAttribute('stroke','none');
+    svgEl.appendChild(areaEl);
+  }
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', 'M ' + validPts.map(p => `${p[0]},${p[1]}`).join(' L '));
+  lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke',cor);
+  lineEl.setAttribute('stroke-width','2'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  if (!reduceMotion) {
+    const len = 3000;
+    lineEl.style.strokeDasharray = len; lineEl.style.strokeDashoffset = len;
+    lineEl.style.transition = 'stroke-dashoffset 900ms cubic-bezier(.2,.7,.2,1)';
+    requestAnimationFrame(() => requestAnimationFrame(() => { lineEl.style.strokeDashoffset = 0; }));
+  }
+  svgEl.appendChild(lineEl);
+
+  // end dot
+  const last = validPts[validPts.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]); dot.setAttribute('r', 4.5);
+  dot.setAttribute('fill', cor); dot.setAttribute('stroke', getVar('--surface')); dot.setAttribute('stroke-width', 2);
+  dot.setAttribute('class','end-dot');
+  svgEl.appendChild(dot);
+
+  // crosshair line (hidden by default, shown via JS on hover)
+  const ch = svgns('line');
+  ch.setAttribute('x1', last[0]); ch.setAttribute('x2', last[0]);
+  ch.setAttribute('y1', 0); ch.setAttribute('y2', altura);
+  ch.setAttribute('class', 'crosshair-line'); ch.id = svgEl.id + '-crosshair';
+  svgEl.appendChild(ch);
+
+  return { x, largura, altura, n };
+}
+
+let heroLayout = null, heroDados = null;
+
+function renderHero() {
+  heroDados = filtrarSerie(janelaAtual);
+  const svgSaldo = document.getElementById('svg-saldo');
+  const svgTaxa = document.getElementById('svg-taxa');
+  desenharPane(svgSaldo, heroDados, 'saldo_total', COR.teal, 'area');
+  heroLayout = desenharPane(svgTaxa, heroDados, 'juros_total', COR.amber, 'line');
+  renderXTicks();
+  renderHeroTable();
+}
+
+function renderXTicks() {
+  const el = document.getElementById('hero-xticks');
+  if (!heroDados || !heroDados.length) { el.innerHTML = ''; return; }
+  const n = heroDados.length;
+  const idxs = n <= 2 ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  el.innerHTML = idxs.map(i => `<span>${competenciaLabel(heroDados[i].competencia)}</span>`).join('');
+}
+
+function renderPills() {
+  const wrap = document.getElementById('window-pills');
+  wrap.innerHTML = JANELAS.map(j =>
+    `<button class="pill${j.key===janelaAtual?' active':''}" data-janela="${j.key}">${j.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      janelaAtual = btn.dataset.janela;
+      wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+      renderHero();
+    });
+  });
+}
+
+function setupHeroHover() {
+  const catcher = document.getElementById('hero-catcher');
+  const tip = document.getElementById('hero-tip');
+  const chSaldo = () => document.getElementById('svg-saldo-crosshair');
+  const chTaxa = () => document.getElementById('svg-taxa-crosshair');
+
+  catcher.addEventListener('pointermove', (ev) => {
+    if (!heroDados || !heroDados.length || !heroLayout) return;
+    const rect = catcher.getBoundingClientRect();
+    const relX = ev.clientX - rect.left;
+    const frac = Math.min(1, Math.max(0, relX / rect.width));
+    const idx = Math.round(frac * (heroDados.length - 1));
+    const d = heroDados[idx];
+    if (!d) return;
+    const xPix = heroLayout.x(idx) / heroLayout.largura * rect.width;
+
+    [chSaldo(), chTaxa()].forEach(el => { if (el) { el.setAttribute('x1', heroLayout.x(idx)); el.setAttribute('x2', heroLayout.x(idx)); el.style.opacity = 1; } });
+
+    tip.innerHTML = `
+      <span class="t-date">${competenciaLabel(d.competencia)}</span>
+      <div class="t-row"><span class="t-key"><i style="background:${COR.teal}"></i>Saldo</span><span class="t-val">${fmtReaisCompacto(d.saldo_total)}</span></div>
+      <div class="t-row"><span class="t-key"><i style="background:${COR.amber}"></i>Taxa</span><span class="t-val">${fmtPct(d.juros_total)}</span></div>
+      <div class="t-row"><span class="t-key"><i style="background:${COR.rose}"></i>Inadimplência</span><span class="t-val">${fmtPct(d.inadimplencia_total)}</span></div>`;
+    tip.style.opacity = 1;
+    let left = xPix + 16, top = ev.clientY - rect.top - 10;
+    if (left + 190 > rect.width) left = xPix - 190 - 16;
+    tip.style.left = left + 'px'; tip.style.top = Math.max(0, top) + 'px';
+  });
+  catcher.addEventListener('pointerleave', () => {
+    tip.style.opacity = 0;
+    [chSaldo(), chTaxa()].forEach(el => { if (el) el.style.opacity = 0; });
+  });
+}
+
+function renderHeroTable() {
+  const el = document.getElementById('hero-table');
+  const rows = [...heroDados].reverse().map(d => `
+    <tr><td>${competenciaLabel(d.competencia)}</td><td>${fmtReaisCompacto(d.saldo_total)}</td><td>${fmtPct(d.juros_total)}</td><td>${fmtPct(d.inadimplencia_total)}</td></tr>`).join('');
+  el.innerHTML = `<table class="datatable"><thead><tr><th>Competência</th><th>Saldo</th><th>Taxa média</th><th>Inadimplência</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---------- ranking bars ----------
+function renderBars(containerId, tableId, dados, cor, unidade, casas=1) {
+  const cont = document.getElementById(containerId);
+  const max = Math.max(...dados.map(d => d.valor));
+  cont.innerHTML = dados.map(d => {
+    const pct = max ? (d.valor / max * 100) : 0;
+    return `
+    <div class="bar-row" tabindex="0" aria-label="${d.modalidade}: ${d.valor}${unidade}">
+      <span class="b-label" title="${d.modalidade}">${d.modalidade}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:${cor};"></div></div>
+      <span class="b-value">${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas})}${unidade}</span>
+    </div>`;
+  }).join('');
+  if (!reduceMotion) {
+    requestAnimationFrame(() => cont.querySelectorAll('.bar-fill').forEach((el,i) => {
+      const w = el.style.width; el.style.width = '0%';
+      setTimeout(() => { el.style.width = w; }, 30 + i*35);
+    }));
+  }
+  const tEl = document.getElementById(tableId);
+  tEl.innerHTML = `<table class="datatable"><thead><tr><th>Modalidade</th><th>Valor</th></tr></thead><tbody>${
+    dados.map(d => `<tr><td>${d.modalidade}</td><td>${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas})}${unidade}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+function renderPorte() {
+  const rotulo = { PJ_GRANDE:'PJ · Grande', PJ_MPME:'PJ · Micro/Peq./Média', PJ_PEQUENO:'PJ · Pequeno porte',
+                   PJ_MICRO:'PJ · Microempresa', MEI_PF_null:'MEI (pessoa física)', MEI_null:'MEI (combinado)' };
+  const dados = DADOS.saldo_porte.map(d => ({
+    modalidade: rotulo[`${d.cliente}_${d.porte}`] || `${d.cliente} · ${d.porte ?? '—'}`,
+    valor: d.valor / 1000,
+  }));
+  renderBars('bars-porte', 'table-porte', dados, COR.teal, ' mi', 0);
+}
+
+// ---------- table toggles ----------
+function setupTableToggles() {
+  document.querySelectorAll('[data-table-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = document.getElementById('table-' + btn.dataset.tableToggle);
+      t.classList.toggle('open');
+      btn.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+    });
+  });
+  document.getElementById('hero-table-btn').addEventListener('click', (e) => {
+    const t = document.getElementById('hero-table');
+    t.classList.toggle('open');
+    e.target.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+  });
+}
+
+// ---------- init ----------
+// ---------- 5 maiores carteiras + Outros ----------
+const CARTEIRAS_COLORS = [COR.teal, COR.amber, COR.rose, COR.violet, COR.green];
+const CARTEIRAS_OUTROS_COR = COR.inkMuted;
+
+function renderCarteirasChart() {
+  const dados = DADOS.top_carteiras;
+  if (!dados || !dados.periodos.length) return;
+
+  document.getElementById('carteiras-legend').innerHTML = dados.series.map((s, i) => `
+    <span class="legend-item"><span class="legend-swatch" style="background:${i < CARTEIRAS_COLORS.length ? CARTEIRAS_COLORS[i] : CARTEIRAS_OUTROS_COR}"></span>${s.nome}</span>
+  `).join('') + `<span class="legend-item"><span class="legend-swatch area" style="background:${COR.ink}"></span>Total</span>`;
+
+  const svgEl = document.getElementById('svg-carteiras');
+  const catcher = document.getElementById('carteiras-catcher');
+  const tip = document.getElementById('carteiras-tip');
+  const largura = svgEl.parentElement.clientWidth || 900, altura = 280;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+
+  const periodos = dados.periodos;
+  const n = periodos.length;
+  const linhas = dados.series.map((s, i) => ({
+    nome: s.nome, valores: s.valores,
+    cor: i < CARTEIRAS_COLORS.length ? CARTEIRAS_COLORS[i] : CARTEIRAS_OUTROS_COR,
+  }));
+  linhas.push({ nome: 'Total', valores: dados.total, cor: COR.ink, total: true });
+
+  const todos = linhas.flatMap(s => s.valores.filter(v => v != null));
+  if (!todos.length) { svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">sem dado suficiente</text>'; return; }
+  const min = 0, max = Math.max(...todos);
+  const span = (max - min) || 1;
+  const x = i => 10 + i / Math.max(n - 1, 1) * (largura - 20);
+  const y = v => altura - 20 - ((v - min) / span) * (altura - 36);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura * frac); gl.setAttribute('y2', altura * frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const hoverDots = [];
+  for (const s of linhas) {
+    const pontos = [];
+    for (let i = 0; i < n; i++) if (s.valores[i] != null) pontos.push([i, s.valores[i]]);
+    if (pontos.length >= 2) {
+      const d = pontos.map(([i, v], k) => `${k === 0 ? 'M' : 'L'} ${x(i)},${y(v)}`).join(' ');
+      const lineEl = svgns('path');
+      lineEl.setAttribute('d', d); lineEl.setAttribute('fill', 'none'); lineEl.setAttribute('stroke', s.cor);
+      lineEl.setAttribute('stroke-width', s.total ? '2.4' : '2');
+      lineEl.setAttribute('stroke-linejoin', 'round'); lineEl.setAttribute('stroke-linecap', 'round');
+      if (s.total) lineEl.setAttribute('stroke-dasharray', '5 4');
+      svgEl.appendChild(lineEl);
+    }
+    const hoverDot = svgns('circle');
+    hoverDot.setAttribute('r', 4); hoverDot.setAttribute('fill', s.cor);
+    hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.6);
+    hoverDot.style.opacity = 0;
+    svgEl.appendChild(hoverDot);
+    hoverDots.push(hoverDot);
+  }
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+
+  const idxs = n <= 2 ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  document.getElementById('carteiras-xticks').innerHTML = idxs.map(i => `<span>${competenciaLabel(periodos[i])}</span>`).join('');
+
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+    const xi = x(idx);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    let corpo = '';
+    linhas.forEach((s, i) => {
+      const v = s.valores[idx];
+      hoverDots[i].style.opacity = v != null ? 1 : 0;
+      if (v != null) { hoverDots[i].setAttribute('cx', xi); hoverDots[i].setAttribute('cy', y(v)); }
+      corpo += `<div class="t-row"><span class="t-key"><i style="background:${s.cor}"></i>${s.nome}</span><span class="t-val">${v != null ? fmtReaisCompacto(v) : '—'}</span></div>`;
+    });
+    tip.innerHTML = `<span class="t-name">${competenciaLabel(periodos[idx])}</span>${corpo}`;
+    tip.style.opacity = 1;
+    const xPix = xi / largura * rect.width;
+    let left = xPix + 10;
+    if (left + 220 > rect.width) left = xPix - 220 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '4px';
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDots.forEach(h => h.style.opacity = 0); };
+}
+
+function init() {
+  document.getElementById('as-of-value').textContent = competenciaLabel(DADOS.meta.competencia_max).toUpperCase();
+  renderKPIs();
+  renderPills();
+  renderHero();
+  setupHeroHover();
+  renderCarteirasChart();
+  renderBars('bars-juros', 'table-juros', DADOS.ranking_juros, COR.amber, '%', 1);
+  renderBars('bars-inad', 'table-inad', DADOS.ranking_inadimplencia, COR.rose, '%', 1);
+  renderBars('bars-prazo', 'table-prazo', DADOS.ranking_prazo, COR.violet, ' m', 0);
+  renderBars('bars-concessao', 'table-concessao', DADOS.ranking_concessao, COR.green, ' mi', 0);
+  renderPorte();
+  setupTableToggles();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { renderHero(); renderCarteirasChart(); }, 120);
+  });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

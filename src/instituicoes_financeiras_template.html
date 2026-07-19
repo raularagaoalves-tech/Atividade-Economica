@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Atividade Econômica — Instituições Financeiras</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:        #070a12;
+    --surface:     #10141f;
+    --surface-2:   #161d2e;
+    --line:        #232b40;
+    --line-soft:   #1a2233;
+    --ink:         #eef2f9;
+    --ink-soft:    #8ea0bd;
+    --ink-muted:   #7583a0;
+
+    --teal:        #0d9488;
+    --teal-lite:   #5eead4;
+    --amber:       #d97706;
+    --amber-lite:  #fcd34d;
+    --rose:        #f43f5e;
+    --rose-lite:   #fda4af;
+    --violet:      #8b5cf6;
+    --violet-lite: #ddd6fe;
+    --green:       #059669;
+    --green-lite:  #6ee7b7;
+    --red:         #dc2626;
+
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page); color: var(--ink); font-family: var(--sans);
+    font-size: 14.5px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; position: relative; overflow-x: hidden;
+  }
+  ::selection { background: rgba(139,92,246,.14); color: var(--ink); }
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(139,92,246,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139,92,246,.055) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+    animation: drift 34s linear infinite;
+  }
+  @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 48px 96px, 48px 96px; } }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .32;
+    width: 46vw; height: 46vw; border-radius: 50%; top: -18vw; right: -12vw;
+    background: radial-gradient(circle, rgba(139,92,246,.5), transparent 70%);
+  }
+  @media (prefers-reduced-motion: reduce) { .bg-grid { animation: none; } }
+  main { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 2.25rem 2rem 5rem; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap;
+    gap: .75rem 1.5rem; padding-bottom: 1.6rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: .7rem; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--violet);
+    box-shadow: 0 0 0 3px rgba(139,92,246,.14), 0 0 14px 2px rgba(139,92,246,.65);
+    display: inline-block; transform: translateY(-1px); animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .brand .dot { animation: none; } }
+  h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 .3rem; }
+  .as-of { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); }
+  .as-of b { color: var(--ink); font-weight: 600; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+  @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-left: 3px solid var(--kpi-hue, var(--violet));
+    border-radius: var(--radius); padding: 1.05rem 1.15rem;
+  }
+  .kpi .label { font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .45rem; }
+  .kpi .value { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+  .kpi .caption { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); margin-top: .3rem; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; margin-bottom: .9rem; }
+  .card-title { font-size: .95rem; font-weight: 700; color: var(--ink); margin: 0 0 .2rem; }
+  .card-sub { font-size: .78rem; color: var(--ink-muted); }
+
+  .pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); flex-wrap: wrap; }
+  .pill {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+    padding: .38rem .8rem; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active { background: var(--pill-hue, var(--violet)); color: #12081f; }
+  .pill:focus-visible, .tbtn:focus-visible, button:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+  .tbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    font-family: var(--sans); font-size: .72rem; font-weight: 600; padding: .35rem .7rem; border-radius: 8px; cursor: pointer;
+  }
+  .tbtn:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--line); stroke-width: 1; }
+  .crosshair-line { stroke: var(--ink-soft); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: 0; }
+  .hover-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .pane-wrap { position: relative; }
+  .x-ticks { display: flex; justify-content: space-between; margin: .3rem 2px 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-muted); }
+
+  .hover-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(11,15,26,.97); border: 1px solid var(--line); border-radius: 10px;
+    padding: .6rem .75rem; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+    box-shadow: 0 12px 28px -12px rgba(0,0,0,.7); opacity: 0; transition: opacity .1s;
+    min-width: 168px; white-space: nowrap;
+  }
+  .hover-tip .t-name { color: var(--ink); font-weight: 700; margin-bottom: .3rem; display: block; letter-spacing: .02em; }
+  .hover-tip .t-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .15rem; }
+  .hover-tip .t-val { color: var(--ink); font-weight: 700; }
+  .hover-tip .t-key { display: flex; align-items: center; gap: .4rem; color: var(--ink-soft); }
+  .hover-tip .t-key i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: none; }
+
+  .hc-asof { font-family: var(--mono); font-size: .68rem; color: var(--ink-muted); margin-top: .35rem; cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
+  .hc-asof:hover { color: var(--ink-soft); text-decoration: underline; }
+
+  .bar-row { display: grid; grid-template-columns: 260px 1fr 90px; align-items: center; gap: .6rem; padding: .32rem 0; }
+  .bar-row .b-label { font-size: .76rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .bar-row .b-label:hover { color: var(--ink); text-decoration: underline; }
+  .bar-row.hi .b-label { color: var(--ink); font-weight: 700; }
+  .b-rank { font-family: var(--mono); color: var(--ink-muted); font-size: .7rem; width: 26px; display: inline-block; }
+  .bar-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; overflow: visible; }
+  .bar-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .bar-row .b-value { font-family: var(--mono); font-size: .78rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .drawer-cnae-row { display: grid; grid-template-columns: 1fr 2fr 90px; align-items: center; gap: .5rem; padding: .3rem 0; }
+  .cn-label { font-size: .76rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cn-bar { position: relative; height: 12px; background: var(--surface-2); border-radius: 4px; }
+  .cn-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; }
+  .cn-val { font-family: var(--mono); font-size: .74rem; text-align: right; color: var(--ink-soft); }
+
+  .drawer-empty { color: var(--ink-muted); font-size: .82rem; padding: .4rem 0 .2rem; }
+  .drawer-body { display: none; }
+  .drawer-body.open { display: block; }
+  .drawer-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  .drawer-head h2 { font-size: 1.1rem; margin: 0; color: var(--ink); }
+  .badge {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .hist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.3rem; margin: .8rem 0 1rem; }
+  .hist-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .hist-card .hc-title { font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .3rem; }
+  .hist-card .hc-value { font-family: var(--mono); font-size: 1.2rem; font-weight: 700; color: var(--ink); margin-bottom: .3rem; }
+  .hist-card svg.mini-chart { display: block; width: 100%; height: 200px; overflow: visible; }
+  .mc-wrap { position: relative; }
+  .mc-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .mc-tip { min-width: 150px; font-size: .68rem; padding: .45rem .6rem; }
+  .mc-tip .t-row { justify-content: flex-start; gap: .5rem; }
+
+  .drawer-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+  @media (max-width: 900px) { .drawer-grid { grid-template-columns: 1fr; } }
+
+  .comp-add { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  select#comp-select {
+    appearance: none; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: .8rem; padding: .42rem 1.8rem .42rem .7rem; border-radius: 8px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    max-width: 360px;
+  }
+  .comp-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; min-height: 2rem; }
+  .comp-chip {
+    display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .4rem .3rem .65rem;
+    border-radius: 999px; font-size: .78rem; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-left: 3px solid var(--chip-cor, var(--violet));
+  }
+  .comp-chip button {
+    appearance: none; border: none; background: var(--line-soft); color: var(--ink-soft); width: 18px; height: 18px;
+    border-radius: 50%; cursor: pointer; font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .comp-chip button:hover { color: var(--ink); background: var(--line); }
+
+  footer.foot { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .74rem; color: var(--ink-muted); }
+  footer.foot p { margin: .25rem 0; }
+  footer.foot code { font-family: var(--mono); color: var(--ink-soft); }
+
+  .kpi .caption-var { font-family: var(--mono); font-size: .64rem; line-height: 1.5; color: var(--ink-muted); margin-top: .35rem; }
+  .kpi .caption-var b { color: var(--ink-soft); font-weight: 600; }
+  .kpi .caption-var .up { color: var(--green-lite); }
+  .kpi .caption-var .down { color: var(--rose-lite); }
+
+  .busca-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
+  .busca-input, select.sel {
+    width: 100%; appearance: none; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: .82rem; padding: .5rem .8rem; border-radius: 8px;
+  }
+  select.sel {
+    padding-right: 1.8rem; cursor: pointer; width: auto; min-width: 150px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .busca-input:focus, select.sel:focus { outline: 2px solid var(--violet); outline-offset: 1px; }
+  .ac-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 16px 32px -12px rgba(0,0,0,.6); max-height: 280px; overflow-y: auto; display: none;
+  }
+  .ac-item { padding: .5rem .8rem; font-size: .8rem; color: var(--ink-soft); cursor: pointer; display: flex; justify-content: space-between; gap: .6rem; }
+  .ac-item:hover, .ac-item.ac-active { background: var(--line-soft); color: var(--ink); }
+  .ac-item .ac-tag { font-family: var(--mono); font-size: .68rem; color: var(--ink-muted); flex-shrink: 0; }
+  .ac-vazio { padding: .6rem .8rem; font-size: .78rem; color: var(--ink-muted); }
+
+  .filtros-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+
+  .tabela-wrap { overflow-x: auto; }
+  .tabela-wrap.retraida table.tbl-if tbody { display: none; }
+  table.tbl-if { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  table.tbl-if th {
+    text-align: left; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-muted); padding: .5rem .7rem; border-bottom: 1px solid var(--line); white-space: nowrap; cursor: pointer;
+  }
+  table.tbl-if th:hover { color: var(--ink-soft); }
+  table.tbl-if th.num, table.tbl-if td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.tbl-if td { padding: .48rem .7rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); white-space: nowrap; }
+  table.tbl-if tbody tr { cursor: pointer; }
+  table.tbl-if tbody tr:hover td { color: var(--ink); background: var(--line-soft); }
+  table.tbl-if td.nome-td { color: var(--ink); font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  .tabela-contagem { font-family: var(--mono); font-size: .72rem; color: var(--ink-muted); margin-top: .5rem; }
+
+  .toggle-pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); }
+  .quick-add-row { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0; }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">Sistema Atividade Econômica</p>
+        <div class="brand"><span class="dot"></span><h1>Instituições Financeiras (IF.data)</h1></div>
+      </div>
+      <div class="as-of" id="as-of-line"></div>
+    </header>
+
+    <section class="kpi-row" id="kpi-row" aria-label="Indicadores principais"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Segmentação prudencial (S1-S5)</p><p class="card-sub">Quantidade de instituições ativas e ativo total por segmento, última competência — clique num segmento para detalhar as instituições</p></div>
+      </div>
+      <div id="bars-segmento"></div>
+    </section>
+
+    <section class="card" id="drawer-segmento-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento do segmento</p><p class="card-sub">Clique num segmento acima para ver as instituições que o compõem</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-segmento-empty">Nenhum segmento selecionado ainda.</div>
+      <div class="drawer-body" id="drawer-segmento-body"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Buscar instituições</p><p class="card-sub">Todas as instituições ativas na última competência — filtre por segmento, UF ou busque pelo nome (sem limite de resultados); clique numa linha pra retrair a tabela</p></div>
+        <button class="tbtn" id="tabela-if-toggle-btn">Retrair tabela</button>
+      </div>
+      <div class="filtros-row">
+        <div class="busca-wrap">
+          <input type="text" class="busca-input" id="busca-if-input" placeholder="Buscar por nome da instituição..." autocomplete="off">
+          <div class="ac-dropdown" id="busca-if-dropdown"></div>
+        </div>
+        <select class="sel" id="filtro-if-segmento"><option value="">Todos os segmentos</option></select>
+        <select class="sel" id="filtro-if-uf"><option value="">Todas as UFs</option></select>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tbl-if" id="tabela-if">
+          <thead><tr>
+            <th data-col="nome">Instituição</th>
+            <th data-col="segmento">Segmento</th>
+            <th data-col="uf">UF</th>
+            <th class="num" data-col="ativo_total">Ativo total</th>
+            <th class="num" data-col="lucro_liquido">Lucro líquido</th>
+            <th class="num" data-col="roa">ROA*</th>
+          </tr></thead>
+          <tbody id="tabela-if-corpo"></tbody>
+        </table>
+      </div>
+      <div class="tabela-contagem" id="tabela-if-contagem"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Resultados (DRE) — top 50 instituições (conglomerado prudencial)</p><p class="card-sub">Clique numa instituição pra ver o detalhamento — ou troque pra "Histórico" pra comparar a evolução das 8 maiores nessa métrica</p></div>
+        <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+          <div class="toggle-pills" id="dre-visao-toggle" role="group" aria-label="Atual ou histórico">
+            <button class="pill active" data-visao="atual">Atual</button>
+            <button class="pill" data-visao="historico">Histórico</button>
+          </div>
+          <div class="pills" id="dre-ranking-pills" role="group" aria-label="Métrica do ranking"></div>
+        </div>
+      </div>
+      <p class="card-sub" style="margin:-.4rem 0 .9rem;">Receita total soma todas as rendas do período (juros e operações de crédito, TVM, tarifas etc.); Despesa total soma todos os custos e perdas (perda esperada de crédito, captação, pessoal etc.) — <b>Receita total − Despesa total = Lucro líquido</b>, sempre. * ROA anualizado (ver nota no rodapé).</p>
+      <div id="bars-dre"></div>
+      <div id="dre-historico-wrap" style="display:none;"></div>
+    </section>
+
+    <section class="card" id="drawer-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento da instituição (DRE)</p><p class="card-sub">Clique numa instituição no ranking acima para ver o histórico</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-empty">Nenhuma instituição selecionada ainda.</div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </section>
+
+    <section class="card" id="comparacao-card">
+      <div class="card-head">
+        <div><p class="card-title">Comparação de instituições (DRE)</p><p class="card-sub">Busque pelo nome, ou adicione todas de um segmento/UF de uma vez — remova clicando no ×</p></div>
+        <div class="pills" id="comp-metric-pills" role="group" aria-label="Métrica da comparação"></div>
+      </div>
+      <div class="comp-add">
+        <div class="busca-wrap" style="flex:1 1 260px;">
+          <input type="text" class="busca-input" id="comp-busca-input" placeholder="Buscar instituição por nome..." autocomplete="off">
+          <div class="ac-dropdown" id="comp-busca-dropdown"></div>
+        </div>
+      </div>
+      <div class="quick-add-row">
+        <span class="card-sub" style="align-self:center;">Adicionar direto:</span>
+        <span id="comp-segmento-btns"></span>
+        <select class="sel" id="comp-uf-select"><option value="">Adicionar por UF...</option></select>
+      </div>
+      <div class="comp-chips" id="comp-chips"></div>
+      <p class="card-sub" id="comp-limite-aviso" style="display:none; color:var(--amber);"></p>
+      <div id="comp-chart-wrap"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Carteira de crédito ativa (conglomerado prudencial)</p><p class="card-sub">Top instituições por carteira PJ — clique para ver modalidade, vencidos, CNAE e porte</p></div>
+      </div>
+      <div id="bars-carteira"></div>
+    </section>
+
+    <section class="card" id="drawer-carteira-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento da carteira</p><p class="card-sub">Clique numa instituição no ranking de carteira acima</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-carteira-empty">Nenhuma instituição selecionada ainda.</div>
+      <div class="drawer-body" id="drawer-carteira-body"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Taxa de juros por instituição</p><p class="card-sub">Última competência — ordenado da mais barata para a mais cara. Clique numa instituição pra ver o histórico dos últimos 5 anos</p></div>
+        <select class="sel" id="taxa-modalidade-select"></select>
+      </div>
+      <div class="busca-wrap" style="max-width:420px; margin-bottom:.9rem;">
+        <input type="text" class="busca-input" id="taxa-busca-input" placeholder="Buscar instituição nesta modalidade..." autocomplete="off">
+        <div class="ac-dropdown" id="taxa-busca-dropdown"></div>
+      </div>
+      <div id="bars-taxa"></div>
+    </section>
+
+    <section class="card" id="drawer-taxa-card">
+      <div class="card-head">
+        <div><p class="card-title">Histórico da taxa de juros</p><p class="card-sub">Clique numa instituição no ranking acima para ver a evolução dos últimos 5 anos</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-taxa-empty">Nenhuma instituição selecionada ainda.</div>
+      <div class="drawer-body" id="drawer-taxa-body"></div>
+    </section>
+
+    <footer class="foot">
+      <p>Fonte: BACEN IF.data (API pública Olinda/OData) — segmentação, DRE e carteira ativa, todos consolidados por <b>conglomerado prudencial</b> (Resolução 4.553/2017 — 1 linha por grupo econômico); e serviço BACEN taxaJuros — taxa por instituição.</p>
+      <p>Aging tem só 1 faixa de vencido ("a partir de 15 dias") — o BCB não abre mais fino que isso nessa fonte.</p>
+      <p>Receita total, Despesa total e ROA só existem a partir de 1ºT/2025 (esquema COSIF novo) — trimestres anteriores mostram Lucro Líquido normalmente, mas sem essa abertura.</p>
+      <p>* <b>ROA anualizado</b>: o Lucro Líquido do IF.data é acumulado no ano (1ºT = jan-mar, 2ºT = jan-jun, 3ºT = jan-set, 4ºT = ano fechado) — antes de dividir pelo Ativo Total, multiplicamos pelo inverso da fração do ano decorrida (1ºT ×4, 2ºT ×2, 3ºT ×4/3, 4ºT ×1) pra estimar a rentabilidade anualizada e permitir comparar trimestres diferentes.</p>
+      <p>Histórico padrão: últimos 5 anos, em todos os relatórios desta página.</p>
+    </footer>
+  </main>
+
+<script>
+const DADOS = __DADOS_JSON__;
+
+function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const COR = {
+  teal: getVar('--teal'), amber: getVar('--amber'), rose: getVar('--rose'),
+  violet: getVar('--violet'), green: getVar('--green'), red: getVar('--red'),
+  surface: getVar('--surface'), inkMuted: getVar('--ink-muted'),
+};
+const HUE_BASE = { teal: COR.teal, amber: COR.amber, rose: COR.rose, violet: COR.violet, green: COR.green };
+
+function fmtContagem(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mil';
+  return v.toLocaleString('pt-BR');
+}
+function fmtPct(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+// valores do IF.data/DRE e da carteira vêm em R$ mil (padrão BACEN)
+function fmtReaisMil(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v/1e9).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' tri';
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' bi';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+  return fmtContagem(v) + ' mil';
+}
+function anomesLabel(a) {
+  const s = String(a);
+  const tri = { '03': '1ºT', '06': '2ºT', '09': '3ºT', '12': '4ºT' }[s.slice(4,6)] || s.slice(4,6);
+  return `${tri}/${s.slice(2,4)}`;
+}
+function fmtVar(v, casas=1) { return v == null ? '—' : (v >= 0 ? '+' : '') + v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function fmtVarNum(v) { return v == null ? '—' : (v >= 0 ? '+' : '') + fmtContagem(Math.abs(v)); }
+
+// normaliza pra busca: minúsculo, sem acento. NFD separa a letra do
+// acento em dois caracteres (o acento vira um combining mark, sempre
+// fora da faixa ASCII) — filtrar tudo que não é ASCII depois do NFD
+// remove o acento sem precisar escrever a faixa Unicode dos combining
+// marks por extenso no código-fonte.
+function normalizarTexto(s) { return (s||'').toLowerCase().normalize('NFD').replace(/[^\x00-\x7f]/g, ''); }
+
+// autocomplete genérico reaproveitado nas 3 caixas de busca desta página
+// (instituições, comparação, taxa de juros) — dropdown flutuante,
+// filtra por `label` conforme digita, `aoSelecionar(value, label)` no clique
+function montarAutocomplete(inputEl, dropdownEl, listaOpcoes, aoSelecionar, opts={}) {
+  const maxSugestoes = opts.maxSugestoes || 10;
+  function atualizar() {
+    const q = normalizarTexto(inputEl.value);
+    if (!q) { dropdownEl.style.display = 'none'; if (opts.onClear) opts.onClear(); return; }
+    const match = listaOpcoes.filter(o => normalizarTexto(o.label).includes(q)).slice(0, maxSugestoes);
+    if (!match.length) {
+      dropdownEl.innerHTML = '<div class="ac-vazio">Nenhuma instituição encontrada</div>';
+      dropdownEl.style.display = 'block';
+      return;
+    }
+    dropdownEl.innerHTML = match.map(o => `<div class="ac-item" data-value="${o.value}">
+      <span>${o.label}</span>${o.tag ? `<span class="ac-tag">${o.tag}</span>` : ''}
+    </div>`).join('');
+    dropdownEl.style.display = 'block';
+    dropdownEl.querySelectorAll('.ac-item').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        const opt = match[i];
+        dropdownEl.style.display = 'none';
+        if (opts.clearOnSelect !== false) inputEl.value = '';
+        aoSelecionar(opt.value, opt.label);
+      });
+    });
+  }
+  inputEl.addEventListener('input', atualizar);
+  inputEl.addEventListener('focus', () => { if (inputEl.value) atualizar(); });
+  document.addEventListener('click', ev => {
+    if (ev.target !== inputEl && !dropdownEl.contains(ev.target)) dropdownEl.style.display = 'none';
+  });
+}
+
+// Hierarquia DRE: Receita Total agrega TODAS as rendas (juros, TVM, tarifas
+// etc.) e Despesa Total agrega TODOS os custos/perdas (perda esperada,
+// captação, pessoal etc.) — Receita Total − Despesa Total = Lucro Líquido,
+// exatamente (ver cálculo em gerar_instituicoes_financeiras.py). `pai`
+// marca sub-linhas contidas num total maior, usado só para indentar/ligar
+// visualmente (não afeta o valor).
+const DRE_METRICAS = [
+  { key: 'ativo_total', label: 'Ativo total', campo: 'hist_ativo_total', fmt: fmtReaisMil, hue: 'teal' },
+  { key: 'receita_total', label: 'Receita total', campo: 'hist_receita_total', fmt: fmtReaisMil, hue: 'amber' },
+  { key: 'receita_credito_total', label: '↳ Receita de operações de crédito', campo: 'hist_receita_credito_total', fmt: fmtReaisMil, hue: 'amber', pai: 'receita_total' },
+  { key: 'receita_juros_credito', label: '↳ ↳ Receita de juros de crédito', campo: 'hist_receita_juros_credito', fmt: fmtReaisMil, hue: 'amber', pai: 'receita_credito_total' },
+  { key: 'despesa_total', label: 'Despesa total', campo: 'hist_despesa_total', fmt: fmtReaisMil, hue: 'rose' },
+  { key: 'perda_esperada_credito', label: '↳ Perda esperada de crédito', campo: 'hist_perda_esperada_credito', fmt: fmtReaisMil, hue: 'rose', pai: 'despesa_total' },
+  { key: 'lucro_liquido', label: 'Lucro líquido', campo: 'hist_lucro_liquido', fmt: fmtReaisMil, hue: 'green' },
+  { key: 'roa', label: 'ROA (Lucro líquido / Ativo total)', campo: 'hist_roa', fmt: v => fmtPct(v, 2), hue: 'violet' },
+];
+// chave SEMPRE string: atributos/valores lidos de volta do DOM
+// (dataset.codinst, select.value) são sempre string, mas `codinst` no JSON
+// é number — comparar/indexar sem normalizar faz o Map.get() falhar
+// silenciosamente (bug real: clique no ranking e no comparativo não
+// funcionavam, o catch ficava undefined e a função abortava no meio)
+const instPorCodinst = new Map(DADOS.instituicoes_dre.map(i => [String(i.codinst), i]));
+
+// ---------- header + KPIs ----------
+// variação entre a última competência de DADOS.evolucao_sistema e a
+// competência imediatamente anterior (trimestre) e a de 1 ano antes
+// (busca por competência exata via Map — tolera buracos, mesmo cuidado
+// já usado na Visão Geral do portal único)
+function variacoesEvolucaoSistema(campo) {
+  const serie = DADOS.evolucao_sistema;
+  if (!serie || serie.length < 2) return { atual: null, trimAnt: null, anoAnt: null, varTrimNom: null, varTrimPct: null, varAnoNom: null, varAnoPct: null };
+  const porCompetencia = new Map(serie.map(r => [r.anomes, r[campo]]));
+  const ultimo = serie[serie.length - 1];
+  const atual = ultimo[campo];
+  const trimAnt = serie[serie.length - 2][campo];
+  const anoAnt = porCompetencia.get(ultimo.anomes - 100);
+  const pct = (a, b) => (a == null || b == null || !b) ? null : Math.round((100 * a / b - 100) * 10) / 10;
+  return {
+    atual,
+    varTrimNom: (atual != null && trimAnt != null) ? atual - trimAnt : null,
+    varTrimPct: pct(atual, trimAnt),
+    varAnoNom: (atual != null && anoAnt != null) ? atual - anoAnt : null,
+    varAnoPct: pct(atual, anoAnt),
+  };
+}
+
+function renderHeader() {
+  document.getElementById('as-of-line').innerHTML = DADOS.meta.anomes_max
+    ? `Competência <b>${anomesLabel(DADOS.meta.anomes_max)}</b> · ${DADOS.meta.total_periodos} competências no histórico`
+    : 'Sem dados carregados.';
+
+  const totalInst = DADOS.segmentacao.reduce((s, r) => s + (r.instituicoes || 0), 0);
+  const ativoTotalBi = DADOS.segmentacao.reduce((s, r) => s + (r.ativo_total_bi || 0), 0);
+  const maiorAtivo = DADOS.ranking_dre[0];
+  const maiorLucro = [...DADOS.ranking_dre].filter(r => r.lucro_liquido != null).sort((a,b) => b.lucro_liquido - a.lucro_liquido)[0];
+
+  const varInst = variacoesEvolucaoSistema('instituicoes');
+  const varAtivo = variacoesEvolucaoSistema('ativo_total_bi');
+
+  const kpis = [
+    { label: 'Instituições ativas (S1-S5)', valor: fmtContagem(totalInst), hue: 'teal',
+      captionVar: `Var. nominal vs. ano anterior: <b class="${varInst.varAnoNom>=0?'up':'down'}">${fmtVarNum(varInst.varAnoNom)}</b> instituições` },
+    { label: 'Ativo total do sistema', valor: ativoTotalBi ? (ativoTotalBi).toLocaleString('pt-BR',{maximumFractionDigits:0}) + ' bi' : '—', hue: 'amber',
+      captionVar: `Var. vs. trimestre anterior: <b class="${varAtivo.varTrimPct>=0?'up':'down'}">${fmtVar(varAtivo.varTrimPct)}</b> · vs. ano anterior: <b class="${varAtivo.varAnoPct>=0?'up':'down'}">${fmtVar(varAtivo.varAnoPct)}</b>` },
+    { label: 'Maior instituição (ativo total)', valor: maiorAtivo ? maiorAtivo.nome : '—', caption: maiorAtivo ? fmtReaisMil(maiorAtivo.ativo_total) : '', hue: 'rose' },
+    { label: 'Maior lucro líquido no período', valor: maiorLucro ? maiorLucro.nome : '—', caption: maiorLucro ? fmtReaisMil(maiorLucro.lucro_liquido) : '', hue: 'green' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(k => `<div class="kpi" style="--kpi-hue:var(--${k.hue})">
+    <div class="label">${k.label}</div>
+    <div class="value" style="${k.caption ? 'font-size:1rem;' : ''}">${k.valor}</div>
+    ${k.caption ? `<div class="caption">${k.caption}</div>` : ''}
+    ${k.captionVar ? `<div class="caption-var">${k.captionVar}</div>` : ''}
+  </div>`).join('');
+}
+
+let segmentoSelecionado = '';
+function renderSegmentoBars() {
+  const dados = DADOS.segmentacao.filter(s => s.segmento);
+  const cont = document.getElementById('bars-segmento');
+  if (!dados.length) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis (fonte BACEN IF.data indisponível na última atualização).</p>'; return; }
+  const max = Math.max(...dados.map(d => d.ativo_total_bi || 0), 1);
+  cont.innerHTML = dados.map((d, i) => {
+    const hi = d.segmento === segmentoSelecionado;
+    return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-segmento="${d.segmento}" style="cursor:pointer;">
+      <span class="b-label"><span class="b-rank">#${i+1}</span>${d.segmento} <span style="color:var(--ink-muted);">· ${fmtContagem(d.instituicoes)} instituições</span></span>
+      <div class="bar-track"><div class="bar-fill" style="width:${(d.ativo_total_bi||0)/max*100}%; background:var(--violet);"></div></div>
+      <span class="b-value">${(d.ativo_total_bi||0).toLocaleString('pt-BR',{maximumFractionDigits:0})} bi</span>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-segmento]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheSegmento(el.dataset.segmento));
+  });
+}
+
+// segue o mesmo padrão de detalhamento ao clique já usado no resto do
+// sistema (DRE, carteira). Usa `segmentacao_detalhe` (já calculado em
+// Python: top 10 por segmento, por ativo total) em vez de filtrar o
+// ranking geral de DRE — o ranking geral só tem as 50 maiores IFs do
+// SISTEMA INTEIRO, dominadas por S1-S3; sem essa fonte separada, S4/S5
+// apareceriam vazios ou quase (são os segmentos com as menores
+// instituições). Nota: como cada instituição só tem ROA/Receita/Despesa
+// completos a partir de 2025, essas linhas aqui trazem só ativo/lucro/ROA
+// (não o histórico) — pra ver a série completa, clique na instituição.
+function abrirDetalheSegmento(segmento) {
+  segmentoSelecionado = segmento;
+  renderSegmentoBars();
+  document.getElementById('drawer-segmento-empty').style.display = 'none';
+  const body = document.getElementById('drawer-segmento-body');
+  body.classList.add('open');
+
+  const lista = DADOS.segmentacao_detalhe[segmento] || [];
+  const totalAtivo = lista.reduce((s, r) => s + (r.ativo_total || 0), 0);
+  const totalLucro = lista.reduce((s, r) => s + (r.lucro_liquido || 0), 0);
+  const maxAtivo = Math.max(1, ...lista.map(r => r.ativo_total || 0));
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>Segmento ${segmento}</h2>
+      <span class="badge">Top ${lista.length} por ativo total</span>
+      <span class="badge">Ativo total (top ${lista.length}): ${fmtReaisMil(totalAtivo)}</span>
+      <span class="badge">Lucro líquido (top ${lista.length}): ${fmtReaisMil(totalLucro)}</span>
+    </div>
+    ${lista.length ? lista.map((r, i) => {
+      const temHistorico = instPorCodinst.has(String(r.codinst));
+      return `<div class="bar-row" ${temHistorico ? `tabindex="0" data-codinst="${r.codinst}" style="cursor:pointer;"` : ''}>
+        <span class="b-label" style="${temHistorico?'':'cursor:default;'}"><span class="b-rank">#${i+1}</span>${r.nome} <span style="color:var(--ink-muted);">· ${r.uf||''} · ROA* ${fmtPct(r.roa,2)}${temHistorico?'':' · sem histórico detalhado'}</span></span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(r.ativo_total||0)/maxAtivo*100}%; background:var(--violet);"></div></div>
+        <span class="b-value">${fmtReaisMil(r.ativo_total)}</span>
+      </div>`;
+    }).join('') : '<p class="drawer-empty">Sem dados disponíveis pra este segmento.</p>'}`;
+
+  body.querySelectorAll('[data-codinst]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheInstituicao(el.dataset.codinst));
+  });
+  document.getElementById('drawer-segmento-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- buscar instituições (tabela sem limite, filtro + autocomplete) ----------
+function compararGenerico(va, vb, dir) {
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  const cmp = typeof va === 'string' ? va.localeCompare(vb, 'pt-BR') : va - vb;
+  return dir * cmp;
+}
+let tabelaIfOrdem = { col: 'ativo_total', dir: -1 };
+let tabelaIfFiltros = { texto: '', segmento: '', uf: '' };
+let tabelaIfRetraida = false;
+
+// retrai/expande a tabela inteira (mantém só o cabeçalho visível quando
+// retraída) — automático ao clicar numa linha (foco no resultado escolhido,
+// sem a lista enorme por baixo), reversível pelo botão ou ao refinar a busca
+function setTabelaIfRetraida(v) {
+  tabelaIfRetraida = v;
+  document.querySelector('#tabela-if').closest('.tabela-wrap').classList.toggle('retraida', v);
+  document.getElementById('tabela-if-toggle-btn').textContent = v ? 'Expandir tabela' : 'Retrair tabela';
+  document.getElementById('tabela-if-contagem').style.display = v ? 'none' : '';
+}
+
+function popularFiltrosTabelaIf() {
+  const todas = DADOS.todas_instituicoes || [];
+  const segmentos = [...new Set(todas.map(i => i.segmento).filter(Boolean))].sort();
+  const ufs = [...new Set(todas.map(i => i.uf).filter(Boolean))].sort();
+  document.getElementById('filtro-if-segmento').innerHTML = '<option value="">Todos os segmentos</option>' +
+    segmentos.map(s => `<option value="${s}">${s}</option>`).join('');
+  document.getElementById('filtro-if-uf').innerHTML = '<option value="">Todas as UFs</option>' +
+    ufs.map(u => `<option value="${u}">${u}</option>`).join('');
+  document.getElementById('filtro-if-segmento').addEventListener('change', e => { tabelaIfFiltros.segmento = e.target.value; setTabelaIfRetraida(false); renderTabelaIf(); });
+  document.getElementById('filtro-if-uf').addEventListener('change', e => { tabelaIfFiltros.uf = e.target.value; setTabelaIfRetraida(false); renderTabelaIf(); });
+
+  const inputBusca = document.getElementById('busca-if-input');
+  inputBusca.addEventListener('input', () => { tabelaIfFiltros.texto = inputBusca.value; setTabelaIfRetraida(false); renderTabelaIf(); });
+  const opcoes = todas.map(i => ({ value: String(i.codinst), label: i.nome, tag: i.segmento || '' }));
+  montarAutocomplete(inputBusca, document.getElementById('busca-if-dropdown'), opcoes, (codinst, nome) => {
+    inputBusca.value = nome;
+    tabelaIfFiltros.texto = nome;
+    setTabelaIfRetraida(false);
+    renderTabelaIf();
+  }, { clearOnSelect: false });
+
+  document.querySelectorAll('#tabela-if th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (tabelaIfOrdem.col === col) tabelaIfOrdem.dir *= -1;
+      else { tabelaIfOrdem.col = col; tabelaIfOrdem.dir = (col === 'nome' || col === 'segmento' || col === 'uf') ? 1 : -1; }
+      renderTabelaIf();
+    });
+  });
+
+  document.getElementById('tabela-if-toggle-btn').addEventListener('click', () => setTabelaIfRetraida(!tabelaIfRetraida));
+}
+
+function renderTabelaIf() {
+  const todas = DADOS.todas_instituicoes || [];
+  const q = normalizarTexto(tabelaIfFiltros.texto);
+  const dados = todas.filter(i =>
+    (!tabelaIfFiltros.segmento || i.segmento === tabelaIfFiltros.segmento) &&
+    (!tabelaIfFiltros.uf || i.uf === tabelaIfFiltros.uf) &&
+    (!q || normalizarTexto(i.nome).includes(q))
+  ).sort((a, b) => compararGenerico(a[tabelaIfOrdem.col], b[tabelaIfOrdem.col], tabelaIfOrdem.dir));
+
+  const corpo = document.getElementById('tabela-if-corpo');
+  corpo.innerHTML = dados.length ? dados.map(r => `
+      <tr data-codinst="${r.codinst}">
+        <td class="nome-td" title="${r.nome}">${r.nome}</td>
+        <td>${r.segmento || '—'}</td>
+        <td>${r.uf || '—'}</td>
+        <td class="num">${fmtReaisMil(r.ativo_total)}</td>
+        <td class="num">${fmtReaisMil(r.lucro_liquido)}</td>
+        <td class="num">${fmtPct(r.roa, 2)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="drawer-empty">Nenhuma instituição encontrada.</td></tr>';
+  document.getElementById('tabela-if-contagem').textContent =
+    `${dados.length} instituiç${dados.length===1?'ão':'ões'} encontrada${dados.length===1?'':'s'}`;
+  corpo.querySelectorAll('tr[data-codinst]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      if (instPorCodinst.has(tr.dataset.codinst)) abrirDetalheInstituicao(tr.dataset.codinst);
+      setTabelaIfRetraida(true);
+    });
+  });
+}
+
+// ---------- ranking DRE ----------
+let dreRankingAtual = 'ativo_total';
+let dreVisao = 'atual';
+function renderDreRankingPills() {
+  const wrap = document.getElementById('dre-ranking-pills');
+  wrap.innerHTML = DRE_METRICAS.map(m => `<button class="pill${m.key===dreRankingAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    dreRankingAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    if (dreVisao === 'historico') renderDreHistorico(); else renderDreBars();
+  }));
+}
+function renderDreVisaoToggle() {
+  const wrap = document.getElementById('dre-visao-toggle');
+  wrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+    dreVisao = btn.dataset.visao;
+    wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('bars-dre').style.display = dreVisao === 'atual' ? 'block' : 'none';
+    document.getElementById('dre-historico-wrap').style.display = dreVisao === 'historico' ? 'block' : 'none';
+    if (dreVisao === 'historico') renderDreHistorico(); else renderDreBars();
+  }));
+}
+// paleta estendida (8 cores) pro modo histórico do DRE, que compara mais
+// instituições de uma vez do que a Comparação manual (limitada a 5-15)
+const DRE_HIST_CORES = [HUE_BASE.teal, HUE_BASE.amber, HUE_BASE.rose, HUE_BASE.violet, HUE_BASE.green,
+  '#38bdf8', '#f472b6', '#a3e635'];
+
+// visão "Histórico": em vez do ranking de barras da competência mais
+// recente, mostra a evolução das 8 maiores instituições (pela métrica
+// selecionada) ao longo dos últimos 5 anos — mesmo padrão de gráfico de
+// linhas + crosshair já usado na Comparação manual, mas com seleção
+// automática (não precisa escolher uma a uma)
+function renderDreHistorico() {
+  const mDef = DRE_METRICAS.find(m => m.key === dreRankingAtual);
+  const top8 = [...DADOS.ranking_dre].filter(r => r[dreRankingAtual] != null)
+    .sort((a, b) => b[dreRankingAtual] - a[dreRankingAtual]).slice(0, 8);
+  const wrap = document.getElementById('dre-historico-wrap');
+  if (!top8.length) { wrap.innerHTML = '<p class="drawer-empty">Sem dado suficiente pra essa métrica.</p>'; return; }
+  wrap.innerHTML = `<div class="pane-wrap">
+    <svg class="chart" id="svg-dre-hist" style="height:280px;"></svg>
+    <div class="hover-catcher" id="dre-hist-catcher"></div>
+    <div class="hover-tip" id="dre-hist-tip"></div>
+  </div><div class="x-ticks" id="dre-hist-xticks"></div>
+  <div class="comp-chips" style="margin-top:.8rem;">${top8.map((r, i) =>
+    `<span class="comp-chip" style="--chip-cor:${DRE_HIST_CORES[i % DRE_HIST_CORES.length]}">${r.nome}</span>`).join('')}</div>`;
+
+  const svgEl = document.getElementById('svg-dre-hist');
+  const catcher = document.getElementById('dre-hist-catcher');
+  const tip = document.getElementById('dre-hist-tip');
+  const largura = svgEl.parentElement.clientWidth || 900, altura = 280;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  const periodos = DADOS.periodos_dre;
+  const n = periodos.length;
+  const series = top8.map((r, i) => ({
+    nome: r.nome, cor: DRE_HIST_CORES[i % DRE_HIST_CORES.length],
+    valores: (instPorCodinst.get(String(r.codinst)) || {})[mDef.campo],
+  }));
+  const todos = series.flatMap(s => (s.valores || []).filter(v => v != null));
+  if (!todos.length) { svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">sem dado suficiente</text>'; return; }
+  const min = Math.min(...todos), max = Math.max(...todos);
+  const span = (max - min) || 1;
+  const x = i => 10 + i / Math.max(n - 1, 1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura * frac); gl.setAttribute('y2', altura * frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const hoverDots = [];
+  for (const s of series) {
+    const pontos = [];
+    for (let i = 0; i < n; i++) if (s.valores && s.valores[i] != null) pontos.push([i, s.valores[i]]);
+    if (pontos.length >= 2) {
+      const d = pontos.map(([i, v], k) => `${k === 0 ? 'M' : 'L'} ${x(i)},${y(v)}`).join(' ');
+      const lineEl = svgns('path');
+      lineEl.setAttribute('d', d); lineEl.setAttribute('fill', 'none'); lineEl.setAttribute('stroke', s.cor);
+      lineEl.setAttribute('stroke-width', '2'); lineEl.setAttribute('stroke-linejoin', 'round'); lineEl.setAttribute('stroke-linecap', 'round');
+      svgEl.appendChild(lineEl);
+    }
+    const hoverDot = svgns('circle');
+    hoverDot.setAttribute('r', 3.5); hoverDot.setAttribute('fill', s.cor);
+    hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.4);
+    hoverDot.style.opacity = 0;
+    svgEl.appendChild(hoverDot);
+    hoverDots.push(hoverDot);
+  }
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+
+  const idxs = n <= 2 ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  document.getElementById('dre-hist-xticks').innerHTML = idxs.map(i => `<span>${anomesLabel(periodos[i])}</span>`).join('');
+
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+    const xi = x(idx);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    let linhas = '';
+    series.forEach((s, i) => {
+      const v = s.valores ? s.valores[idx] : null;
+      hoverDots[i].style.opacity = v != null ? 1 : 0;
+      if (v != null) { hoverDots[i].setAttribute('cx', xi); hoverDots[i].setAttribute('cy', y(v)); }
+      linhas += `<div class="t-row"><span class="t-key"><i style="background:${s.cor}"></i>${s.nome}</span><span class="t-val">${v != null ? mDef.fmt(v) : '—'}</span></div>`;
+    });
+    tip.innerHTML = `<span class="t-name">${anomesLabel(periodos[idx])}</span>${linhas}`;
+    tip.style.opacity = 1;
+    const xPix = xi / largura * rect.width;
+    let left = xPix + 10;
+    if (left + 220 > rect.width) left = xPix - 220 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '4px';
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDots.forEach(h => h.style.opacity = 0); };
+}
+let dreSelecionado = '';
+function renderDreBars() {
+  const mDef = DRE_METRICAS.find(m => m.key === dreRankingAtual);
+  const cont = document.getElementById('bars-dre');
+  const dados = [...DADOS.ranking_dre].filter(r => r[dreRankingAtual] != null)
+    .sort((a,b) => b[dreRankingAtual] - a[dreRankingAtual]).slice(0, 20);
+  if (!dados.length) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis (fonte BACEN IF.data indisponível na última atualização).</p>'; return; }
+  const max = Math.max(...dados.map(d => Math.abs(d[dreRankingAtual])), 1);
+  cont.innerHTML = dados.map((d, i) => {
+    const hi = String(d.codinst) === dreSelecionado;
+    return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-codinst="${d.codinst}" style="cursor:pointer;">
+      <span class="b-label"><span class="b-rank">#${i+1}</span>${d.nome} <span style="color:var(--ink-muted);">· ${d.segmento||''}</span></span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.abs(d[dreRankingAtual])/max*100}%; background:var(--${mDef.hue});"></div></div>
+      <span class="b-value">${mDef.fmt(d[dreRankingAtual])}</span>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-codinst]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheInstituicao(el.dataset.codinst));
+  });
+}
+
+// ---------- mini-chart genérico ----------
+function renderMiniChart(svgEl, catcher, tip, periodos, valores, cor, fmt, titulo, labelFn = anomesLabel) {
+  const largura = 460, altura = 200;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+  const pontos = [];
+  for (let i = 0; i < periodos.length; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) {
+    svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)" font-size="13">dado insuficiente</text>';
+    if (catcher) catcher.style.display = 'none';
+    return null;
+  }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const n = periodos.length;
+  const x = i => 10 + i / (n - 1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+  const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', cor);
+  lineEl.setAttribute('stroke-width', '2.4'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svgEl.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 5);
+  dot.setAttribute('fill', cor); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 1.8);
+  svgEl.appendChild(dot);
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+  const hoverDot = svgns('circle');
+  hoverDot.setAttribute('r', 4.5); hoverDot.setAttribute('fill', cor);
+  hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.8);
+  hoverDot.style.opacity = 0;
+  svgEl.appendChild(hoverDot);
+
+  function mostrarIndice(idx) {
+    const v = valores[idx];
+    if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; return; }
+    const xi = x(idx), yi = y(v);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    hoverDot.setAttribute('cx', xi); hoverDot.setAttribute('cy', yi); hoverDot.style.opacity = 1;
+    tip.innerHTML = `<span class="t-name">${labelFn(periodos[idx])}</span><div class="t-row"><span>${titulo}</span><span class="t-val">${fmt(v)}</span></div>`;
+    tip.style.opacity = 1;
+    const rect = catcher.getBoundingClientRect();
+    const xPix = xi / largura * (rect.width || largura);
+    let left = xPix + 10;
+    if (left + 150 > (rect.width || largura)) left = xPix - 150 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '-4px';
+  }
+  if (!catcher) return mostrarIndice;
+  catcher.style.display = 'block';
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    mostrarIndice(Math.min(n-1, Math.max(0, Math.round(frac * (n-1)))));
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; };
+  return mostrarIndice;
+}
+
+// ---------- drawer de detalhe da instituição (DRE) ----------
+function abrirDetalheInstituicao(codinst) {
+  const inst = instPorCodinst.get(codinst);
+  if (!inst) return;
+  dreSelecionado = codinst;
+  renderDreBars();
+  document.getElementById('drawer-empty').style.display = 'none';
+  const body = document.getElementById('drawer-body');
+  body.classList.add('open');
+
+  const blocos = DRE_METRICAS.map(mDef => {
+    const valores = inst[mDef.campo] || [];
+    const periodos = DADOS.periodos_dre;
+    let ultimoIdx = -1;
+    for (let i = valores.length - 1; i >= 0; i--) if (valores[i] != null) { ultimoIdx = i; break; }
+    const uid = mDef.key + '_' + Math.random().toString(36).slice(2,8);
+    const n = periodos.length;
+    const idxs = n <= 2 ? [0, Math.max(n-1,0)] : [0, Math.round((n-1)/2), n-1];
+    const ticks = n ? idxs.map(i => `<span>${anomesLabel(periodos[i])}</span>`).join('') : '';
+    const asof = ultimoIdx >= 0
+      ? `<button class="hc-asof" data-uid="${uid}">* dado mais recente: ${anomesLabel(periodos[ultimoIdx])}</button>` : '';
+    const subStyle = mDef.pai ? `margin-left:1.4rem; border-left:3px solid ${HUE_BASE[mDef.hue]};` : '';
+    const html = `<div class="hist-card" style="${subStyle}">
+      <div class="hc-title">${mDef.label}</div>
+      <div class="hc-value">${ultimoIdx>=0 ? mDef.fmt(valores[ultimoIdx]) : '—'}</div>
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="mc_${uid}"></svg>
+        <div class="mc-catcher" id="cat_${uid}"></div>
+        <div class="hover-tip mc-tip" id="tip_${uid}"></div>
+      </div>
+      <div class="x-ticks">${ticks}</div>
+      ${asof}
+    </div>`;
+    return { html, uid, periodos, valores, fmt: mDef.fmt, titulo: mDef.label, cor: HUE_BASE[mDef.hue], ultimoIdx };
+  });
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${inst.nome}</h2>
+      <span class="badge">${inst.segmento || '—'}</span>
+      <span class="badge">${inst.uf || '—'}</span>
+    </div>
+    <div class="hist-grid">${blocos.map(b => b.html).join('')}</div>`;
+
+  blocos.forEach(b => {
+    const svgEl = document.getElementById('mc_' + b.uid);
+    const catcher = document.getElementById('cat_' + b.uid);
+    const tip = document.getElementById('tip_' + b.uid);
+    const mostrarIndice = renderMiniChart(svgEl, catcher, tip, b.periodos, b.valores, b.cor, b.fmt, b.titulo);
+    const botao = document.querySelector(`.hc-asof[data-uid="${b.uid}"]`);
+    if (botao && mostrarIndice) botao.addEventListener('click', () => mostrarIndice(b.ultimoIdx));
+  });
+  document.getElementById('drawer-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- comparação de instituições (DRE) ----------
+// paleta de 10 cores (repete via módulo se passar disso) — precisa ser
+// maior que as 5 fixas de antes porque agora dá pra adicionar um
+// segmento inteiro (S1=6, S2=10) ou uma UF de uma vez
+const COMPARE_COLORS = [HUE_BASE.teal, HUE_BASE.amber, HUE_BASE.rose, HUE_BASE.violet, HUE_BASE.green,
+  '#38bdf8', '#f472b6', '#a3e635', '#fb923c', '#22d3ee'];
+const COMP_MAX = 20;
+let comparativo = [];
+let compMetricaAtual = 'ativo_total';
+
+function popularSelectComparacao() {
+  const inputBusca = document.getElementById('comp-busca-input');
+  const opcoes = [...DADOS.instituicoes_dre]
+    .sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+    .map(i => ({ value: String(i.codinst), label: i.nome, tag: [i.segmento, i.uf].filter(Boolean).join(' · ') }));
+  montarAutocomplete(inputBusca, document.getElementById('comp-busca-dropdown'), opcoes,
+    codinst => { adicionarComparativo(codinst); renderComparacaoChips(); renderComparacaoChart(); });
+
+  // botões de segmento gerados a partir dos dados (S1-S5, o que existir),
+  // não fixos — cobre todos os segmentos, não só S1/S2
+  const segmentos = [...new Set(DADOS.instituicoes_dre.map(i => i.segmento).filter(Boolean))].sort();
+  const contBtns = document.getElementById('comp-segmento-btns');
+  contBtns.innerHTML = segmentos.map(s => `<button class="tbtn" data-add-segmento="${s}">Todo ${s}</button>`).join('');
+  contBtns.querySelectorAll('[data-add-segmento]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      adicionarComparativoEmLote(DADOS.instituicoes_dre.filter(i => i.segmento === btn.dataset.addSegmento).map(i => String(i.codinst)));
+    });
+  });
+
+  const ufs = [...new Set(DADOS.instituicoes_dre.map(i => i.uf).filter(Boolean))].sort();
+  const selUf = document.getElementById('comp-uf-select');
+  selUf.innerHTML = '<option value="">Adicionar por UF...</option>' + ufs.map(u => `<option value="${u}">${u}</option>`).join('');
+  selUf.addEventListener('change', () => {
+    if (!selUf.value) return;
+    adicionarComparativoEmLote(DADOS.instituicoes_dre.filter(i => i.uf === selUf.value).map(i => String(i.codinst)));
+    selUf.value = '';
+  });
+}
+function adicionarComparativo(codinst) {
+  if (!codinst || comparativo.includes(codinst) || comparativo.length >= COMP_MAX) return false;
+  comparativo.push(codinst);
+  return true;
+}
+// adiciona várias de uma vez (segmento/UF inteiros) e avisa quando o limite
+// de COMP_MAX corta parte da lista, em vez de descartar em silêncio
+function adicionarComparativoEmLote(codinsts) {
+  let adicionadas = 0;
+  codinsts.forEach(c => { if (adicionarComparativo(c)) adicionadas++; });
+  const aviso = document.getElementById('comp-limite-aviso');
+  const cortadas = codinsts.length - adicionadas;
+  if (cortadas > 0 && comparativo.length >= COMP_MAX) {
+    aviso.textContent = `Limite de ${COMP_MAX} instituições na comparação atingido — ${cortadas} não foram adicionadas.`;
+    aviso.style.display = '';
+  } else {
+    aviso.style.display = 'none';
+  }
+  renderComparacaoChips();
+  renderComparacaoChart();
+}
+function renderComparacaoChips() {
+  const cont = document.getElementById('comp-chips');
+  cont.innerHTML = comparativo.length
+    ? comparativo.map((codinst, i) => `<span class="comp-chip" style="--chip-cor:${COMPARE_COLORS[i % COMPARE_COLORS.length]}">${instPorCodinst.get(codinst).nome}<button data-codinst="${codinst}" aria-label="Remover">×</button></span>`).join('')
+    : `<span class="drawer-empty">Nenhuma instituição selecionada — busque acima, ou adicione um segmento/UF inteiro (até ${COMP_MAX}).</span>`;
+  cont.querySelectorAll('button[data-codinst]').forEach(b => b.addEventListener('click', () => {
+    comparativo = comparativo.filter(c => c !== b.dataset.codinst);
+    renderComparacaoChips(); renderComparacaoChart();
+  }));
+}
+function renderCompMetricPills() {
+  const wrap = document.getElementById('comp-metric-pills');
+  wrap.innerHTML = DRE_METRICAS.map(m => `<button class="pill${m.key===compMetricaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => {
+    compMetricaAtual = btn.dataset.key;
+    wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+    renderComparacaoChart();
+  }));
+}
+function renderComparacaoChart() {
+  const wrap = document.getElementById('comp-chart-wrap');
+  if (!comparativo.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="pane-wrap">
+    <svg class="chart" id="svg-comp" style="height:240px;"></svg>
+    <div class="hover-catcher" id="comp-catcher"></div>
+    <div class="hover-tip" id="comp-tip"></div>
+  </div><div class="x-ticks" id="comp-xticks"></div>`;
+
+  const mDef = DRE_METRICAS.find(m => m.key === compMetricaAtual);
+  const svgEl = document.getElementById('svg-comp');
+  const catcher = document.getElementById('comp-catcher');
+  const tip = document.getElementById('comp-tip');
+  const largura = svgEl.parentElement.clientWidth || 900, altura = 240;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+
+  const series = comparativo.map((codinst, i) => ({ nome: instPorCodinst.get(codinst).nome, cor: COMPARE_COLORS[i % COMPARE_COLORS.length], valores: instPorCodinst.get(codinst)[mDef.campo] }));
+  const periodos = DADOS.periodos_dre;
+  const n = periodos.length;
+  const todos = series.flatMap(s => (s.valores||[]).filter(v => v != null));
+  if (!todos.length) { svgEl.innerHTML = '<text x="10" y="100" fill="var(--ink-muted)">sem dado suficiente</text>'; return; }
+  const min = Math.min(...todos), max = Math.max(...todos);
+  const span = (max - min) || 1;
+  const x = i => 10 + i / Math.max(n-1,1) * (largura - 20);
+  const y = v => altura - 16 - ((v - min) / span) * (altura - 32);
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 10); gl.setAttribute('x2', largura - 10);
+    gl.setAttribute('y1', altura*frac); gl.setAttribute('y2', altura*frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const hoverDots = [];
+  for (const s of series) {
+    const pontos = [];
+    for (let i = 0; i < n; i++) if (s.valores && s.valores[i] != null) pontos.push([i, s.valores[i]]);
+    if (pontos.length >= 2) {
+      const d = pontos.map(([i,v],k) => `${k===0?'M':'L'} ${x(i)},${y(v)}`).join(' ');
+      const lineEl = svgns('path');
+      lineEl.setAttribute('d', d); lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke', s.cor);
+      lineEl.setAttribute('stroke-width', '2.2'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+      svgEl.appendChild(lineEl);
+    }
+    const hoverDot = svgns('circle');
+    hoverDot.setAttribute('r', 4); hoverDot.setAttribute('fill', s.cor);
+    hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.6);
+    hoverDot.style.opacity = 0;
+    svgEl.appendChild(hoverDot);
+    hoverDots.push(hoverDot);
+  }
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+
+  const idxs = n <= 2 ? [0, n-1] : [0, Math.round((n-1)/2), n-1];
+  document.getElementById('comp-xticks').innerHTML = idxs.map(i => `<span>${anomesLabel(periodos[i])}</span>`).join('');
+
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.min(n-1, Math.max(0, Math.round(frac * (n-1))));
+    const xi = x(idx);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    let linhas = '';
+    series.forEach((s, i) => {
+      const v = s.valores ? s.valores[idx] : null;
+      hoverDots[i].style.opacity = v != null ? 1 : 0;
+      if (v != null) { hoverDots[i].setAttribute('cx', xi); hoverDots[i].setAttribute('cy', y(v)); }
+      linhas += `<div class="t-row"><span class="t-key"><i style="background:${s.cor}"></i>${s.nome}</span><span class="t-val">${v!=null?mDef.fmt(v):'—'}</span></div>`;
+    });
+    tip.innerHTML = `<span class="t-name">${anomesLabel(periodos[idx])}</span>${linhas}`;
+    tip.style.opacity = 1;
+    const xPix = xi / largura * rect.width;
+    let left = xPix + 10;
+    if (left + 220 > rect.width) left = xPix - 220 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '4px';
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDots.forEach(h => h.style.opacity = 0); };
+}
+
+// ---------- carteira de crédito ativa (conglomerado prudencial) ----------
+// mesma normalização de tipo que instPorCodinst (ver comentário lá)
+const carteiraPorCodinst = new Map(DADOS.carteira.map(c => [String(c.codinst), c]));
+let carteiraSelecionada = '';
+function renderCarteiraBars() {
+  const dados = DADOS.carteira;
+  const cont = document.getElementById('bars-carteira');
+  if (!dados.length) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis (fonte BACEN IF.data indisponível na última atualização).</p>'; return; }
+  const max = Math.max(...dados.map(d => d.carteira_pj_total || 0), 1);
+  cont.innerHTML = dados.map((d, i) => {
+    const hi = String(d.codinst) === carteiraSelecionada;
+    return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-codinst="${d.codinst}" style="cursor:pointer;">
+      <span class="b-label"><span class="b-rank">#${i+1}</span>${d.nome} <span style="color:var(--ink-muted);">· ${d.uf||''}</span></span>
+      <div class="bar-track"><div class="bar-fill" style="width:${(d.carteira_pj_total||0)/max*100}%; background:var(--teal);"></div></div>
+      <span class="b-value">${fmtReaisMil(d.carteira_pj_total)}</span>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-codinst]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheCarteira(el.dataset.codinst));
+  });
+}
+
+function blocoBarras(itens, cor) {
+  if (!itens || !itens.length) return '<p class="drawer-empty">Sem dados disponíveis.</p>';
+  const max = Math.max(1, ...itens.map(i => i[1]));
+  return itens.map(([nome, val]) => `
+    <div class="drawer-cnae-row">
+      <span class="cn-label" title="${nome}">${nome}</span>
+      <div class="cn-bar"><div class="cn-fill" style="width:${val/max*100}%; background:${cor};"></div></div>
+      <span class="cn-val">${fmtReaisMil(val)}</span>
+    </div>`).join('');
+}
+
+function abrirDetalheCarteira(codinst) {
+  const c = carteiraPorCodinst.get(codinst);
+  if (!c) return;
+  carteiraSelecionada = codinst;
+  renderCarteiraBars();
+  document.getElementById('drawer-carteira-empty').style.display = 'none';
+  const body = document.getElementById('drawer-carteira-body');
+  body.classList.add('open');
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${c.nome}</h2>
+      <span class="badge">${c.uf || '—'}</span>
+      <span class="badge">Carteira PJ: ${fmtReaisMil(c.carteira_pj_total)}</span>
+    </div>
+    <div class="drawer-grid">
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Carteira PJ por modalidade</p>
+        ${blocoBarras(c.modalidade, 'var(--teal)')}
+      </div>
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Vencidos PJ por modalidade (&gt;15 dias)</p>
+        ${blocoBarras(c.vencidos, 'var(--red)')}
+      </div>
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Carteira PJ por CNAE</p>
+        ${blocoBarras(c.cnae, 'var(--amber)')}
+      </div>
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Carteira PJ por porte</p>
+        ${blocoBarras(c.porte, 'var(--violet)')}
+      </div>
+    </div>`;
+  document.getElementById('drawer-carteira-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- taxa de juros por instituição ----------
+const MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function dataLabel(d) {
+  const s = String(d);
+  const ano = s.slice(0, 4), mes = parseInt(s.slice(5, 7), 10);
+  return `${MESES_ABREV[mes - 1] || s.slice(5,7)}/${ano.slice(2)}`;
+}
+
+let taxaFiltro = '';
+function popularTaxaSelect() {
+  const sel = document.getElementById('taxa-modalidade-select');
+  sel.innerHTML = DADOS.taxa_juros.modalidades.map(m => `<option value="${m}">${m}</option>`).join('');
+  sel.addEventListener('change', () => {
+    taxaFiltro = '';
+    document.getElementById('taxa-busca-input').value = '';
+    renderTaxaBars();
+  });
+  document.getElementById('taxa-busca-input').addEventListener('input', ev => {
+    taxaFiltro = ev.target.value;
+    renderTaxaBars();
+  });
+}
+function renderTaxaBars() {
+  const sel = document.getElementById('taxa-modalidade-select');
+  const mod = sel.value || DADOS.taxa_juros.modalidades[0];
+  const inputBusca = document.getElementById('taxa-busca-input');
+  // remonta o autocomplete a cada chamada — a lista de instituições muda
+  // conforme a modalidade selecionada
+  const opcoes = (DADOS.taxa_juros.por_modalidade[mod] || [])
+    .map(d => ({ value: d.instituicao, label: d.instituicao, tag: d.segmento || '' }));
+  montarAutocomplete(inputBusca, document.getElementById('taxa-busca-dropdown'), opcoes, (valor, label) => {
+    inputBusca.value = label;
+    taxaFiltro = label;
+    renderTaxaBars();
+  }, { clearOnSelect: false });
+
+  const q = normalizarTexto(taxaFiltro);
+  let dados = DADOS.taxa_juros.por_modalidade[mod] || [];
+  // sem busca: top 25 mais baratas (padrão); com busca: TODAS as que baterem, sem limite
+  dados = q ? dados.filter(d => normalizarTexto(d.instituicao).includes(q)) : dados.slice(0, 25);
+  const cont = document.getElementById('bars-taxa');
+  if (!dados.length) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis.</p>'; return; }
+  const max = Math.max(...dados.map(d => d.taxa_ano_pct || 0), 1);
+  cont.innerHTML = dados.map((d, i) => `
+    <div class="bar-row" tabindex="0" data-instituicao="${d.instituicao}" style="cursor:pointer;">
+      <span class="b-label"><span class="b-rank">#${i+1}</span>${d.instituicao} <span style="color:var(--ink-muted);">· ${d.segmento||''}</span></span>
+      <div class="bar-track"><div class="bar-fill" style="width:${(d.taxa_ano_pct||0)/max*100}%; background:var(--amber);"></div></div>
+      <span class="b-value">${fmtPct(d.taxa_ano_pct,1)} a.a.</span>
+    </div>`).join('');
+  cont.querySelectorAll('[data-instituicao]').forEach(el => {
+    el.addEventListener('click', () => abrirDetalheTaxaHistorico(mod, el.dataset.instituicao));
+  });
+}
+
+// histórico dos últimos 5 anos pra uma instituição × modalidade — reusa o
+// mesmo mini-gráfico do DRE, com formatador de período próprio (datas,
+// não trimestres)
+function abrirDetalheTaxaHistorico(modalidade, instituicao) {
+  document.getElementById('drawer-taxa-empty').style.display = 'none';
+  const body = document.getElementById('drawer-taxa-body');
+  body.classList.add('open');
+  const periodos = DADOS.taxa_juros.periodos_historico || [];
+  const valores = (DADOS.taxa_juros.historico[modalidade] || {})[instituicao] || [];
+  const uid = 'taxa_' + Math.random().toString(36).slice(2, 8);
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${instituicao}</h2>
+      <span class="badge">${modalidade}</span>
+    </div>
+    <div class="hist-card" style="max-width:640px;">
+      <div class="hc-title">Taxa de juros ao ano — últimos 5 anos</div>
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="mc_${uid}" style="height:240px;"></svg>
+        <div class="mc-catcher" id="cat_${uid}"></div>
+        <div class="hover-tip mc-tip" id="tip_${uid}"></div>
+      </div>
+    </div>`;
+  const svgEl = document.getElementById('mc_' + uid);
+  const catcher = document.getElementById('cat_' + uid);
+  const tip = document.getElementById('tip_' + uid);
+  renderMiniChart(svgEl, catcher, tip, periodos, valores, HUE_BASE.amber,
+    v => fmtPct(v, 2) + ' a.a.', 'Taxa ao ano', dataLabel);
+  document.getElementById('drawer-taxa-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- init ----------
+function init() {
+  renderHeader();
+  // cada seção degrada de forma independente (nenhuma trava as outras) —
+  // segmentação/DRE/carteira vêm do IF.data (pode estar indisponível),
+  // taxa de juros é uma fonte BCB separada e segue funcionando mesmo
+  // quando o IF.data falha
+  renderSegmentoBars();
+  popularFiltrosTabelaIf();
+  renderTabelaIf();
+  renderDreRankingPills();
+  renderDreVisaoToggle();
+  renderDreBars();
+  popularSelectComparacao();
+  renderComparacaoChips();
+  renderCompMetricPills();
+  renderCarteiraBars();
+  popularTaxaSelect();
+  renderTaxaBars();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderComparacaoChart, 120); });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

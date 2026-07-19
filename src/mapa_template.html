@@ -1,0 +1,1696 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema Atividade Econômica — Mapa Regional</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page:        #070a12;
+    --surface:     #10141f;
+    --surface-2:   #161d2e;
+    --line:        #232b40;
+    --line-soft:   #1a2233;
+    --ink:         #eef2f9;
+    --ink-soft:    #8ea0bd;
+    --ink-muted:   #7583a0;
+
+    --teal:        #0d9488;   /* PIB / atividade */
+    --teal-soft:   rgba(13,148,136,.14);
+    --teal-lite:   #5eead4;
+    --amber:       #d97706;   /* crédito bancário */
+    --amber-soft:  rgba(217,119,6,.14);
+    --amber-lite:  #fcd34d;
+    --rose:        #f43f5e;   /* crédito / PIB */
+    --rose-soft:   rgba(244,63,94,.14);
+    --rose-lite:   #fda4af;
+    --violet:      #8b5cf6;   /* emprego saldo 12m (positivo) */
+    --violet-lite: #ddd6fe;
+    --green:       #059669;   /* empresas por mil hab */
+    --green-lite:  #6ee7b7;
+    --red:         #dc2626;   /* emprego saldo 12m (negativo) */
+
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--teal-soft); color: var(--ink); }
+
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(13,148,136,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,148,136,.055) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+    animation: drift 34s linear infinite;
+  }
+  @keyframes drift { from { background-position: 0 0, 0 0; } to { background-position: 48px 96px, 48px 96px; } }
+  .bg-glow {
+    position: fixed; z-index: 0; pointer-events: none; filter: blur(90px); opacity: .32;
+    width: 46vw; height: 46vw; border-radius: 50%;
+    top: -18vw; right: -12vw;
+    background: radial-gradient(circle, rgba(13,148,136,.5), transparent 70%);
+  }
+  @media (prefers-reduced-motion: reduce) { .bg-grid { animation: none; } }
+
+  main { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 2.25rem 2rem 5rem; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: .75rem 1.5rem;
+    padding-bottom: 1.6rem; margin-bottom: 1.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: baseline; gap: .7rem; }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-soft), 0 0 14px 2px rgba(13,148,136,.65);
+    display: inline-block; transform: translateY(-1px);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) { .brand .dot { animation: none; } }
+  h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .eyebrow { font-size: .68rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 .3rem; }
+  .as-of { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .as-of b { color: var(--ink); font-weight: 600; }
+
+  .summary-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  @media (max-width: 980px) { .summary-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .summary-row { grid-template-columns: 1fr; } }
+  .stat {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .85rem 1rem;
+  }
+  .stat .label { font-size: .64rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .35rem; }
+  .stat .value { font-size: 1.28rem; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.3rem 1.4rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; margin-bottom: .9rem; }
+  .card-title { font-size: .95rem; font-weight: 700; color: var(--ink); margin: 0 0 .2rem; }
+  .card-sub { font-size: .78rem; color: var(--ink-muted); }
+
+  /* ---- filter row ---- */
+  .filter-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .7rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .85rem 1.1rem; margin-bottom: 1.1rem;
+  }
+  .filter-row label { font-size: .68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); margin-right: .4rem; }
+  .filter-group { display: flex; align-items: center; }
+  select {
+    appearance: none; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: .8rem; font-weight: 600; padding: .38rem 1.8rem .38rem .7rem;
+    border-radius: 8px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  select:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+  .clear-filters { margin-left: auto; }
+
+  .pills { display: flex; gap: .3rem; background: var(--surface-2); padding: .25rem; border-radius: 999px; border: 1px solid var(--line); }
+  .pill {
+    appearance: none; border: none; background: transparent; color: var(--ink-soft);
+    font-family: var(--sans); font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+    padding: .38rem .8rem; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill.active { background: var(--pill-hue, var(--teal)); color: #04130f; }
+  .pill:focus-visible, .tbtn:focus-visible, button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .tbtn {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+    font-family: var(--sans); font-size: .72rem; font-weight: 600; padding: .35rem .7rem; border-radius: 8px; cursor: pointer;
+  }
+  .tbtn:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  /* ---- map ---- */
+  .map-stage { position: relative; border-radius: 10px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); }
+  svg.map-svg { display: block; width: 100%; height: 560px; cursor: grab; overflow: visible; }
+  svg.map-svg.dragging { cursor: grabbing; }
+  .map-bubble { transition: fill .25s, opacity .2s; }
+  .map-bubble.dim { opacity: .10; }
+  .map-bubble:hover { stroke: var(--ink); stroke-width: 1; }
+  .uf-hull {
+    stroke: var(--surface-2); stroke-width: 1.5; cursor: pointer;
+    transition: transform 150ms ease-out, filter 150ms ease-out, opacity .2s;
+    transform-box: fill-box; transform-origin: 50% 50%;
+  }
+  .uf-hull.uf-hover { transform: scale(1.06); filter: url(#elevate-shadow); }
+  .capital-marker { fill: #fbbf24; stroke: var(--surface); stroke-width: 1; cursor: pointer; transition: transform .12s ease-out; transform-box: fill-box; transform-origin: 50% 50%; }
+  .capital-marker:hover { transform: scale(1.35); }
+  .btn-voltar {
+    position: absolute; left: 12px; top: 12px; z-index: 3; display: none;
+    appearance: none; border: 1px solid var(--line); background: rgba(11,15,26,.9); color: var(--ink);
+    font-family: var(--sans); font-size: .76rem; font-weight: 600; padding: .4rem .75rem; border-radius: 8px; cursor: pointer;
+  }
+  .btn-voltar:hover { border-color: var(--ink-muted); }
+  .zoom-controls { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+  .zoom-controls button {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: rgba(11,15,26,.9);
+    color: var(--ink); font-size: 1rem; font-weight: 700; cursor: pointer; line-height: 1;
+  }
+  .zoom-controls button:hover { border-color: var(--ink-muted); }
+
+  /* ---- busca de município ---- */
+  .search-wrap { position: relative; min-width: 220px; }
+  .search-wrap input {
+    width: 100%; appearance: none; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: .8rem; padding: .42rem .7rem; border-radius: 8px;
+  }
+  .search-wrap input:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .search-results {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    box-shadow: 0 16px 32px -12px rgba(0,0,0,.7); max-height: 280px; overflow-y: auto;
+  }
+  .search-results.open { display: block; }
+  .search-item { padding: .5rem .75rem; font-size: .8rem; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; }
+  .search-item:hover, .search-item.active { background: var(--teal-soft); }
+  .search-item .search-uf { color: var(--ink-muted); font-family: var(--mono); font-size: .72rem; }
+  .search-empty { padding: .5rem .75rem; font-size: .78rem; color: var(--ink-muted); }
+
+  /* ---- comparação de municípios ---- */
+  .comp-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; min-height: 2rem; }
+  .comp-chip {
+    display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .4rem .3rem .65rem;
+    border-radius: 999px; font-size: .78rem; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-left: 3px solid var(--chip-cor, var(--teal));
+  }
+  .comp-chip button {
+    appearance: none; border: none; background: var(--line-soft); color: var(--ink-soft); width: 18px; height: 18px;
+    border-radius: 50%; cursor: pointer; font-size: .8rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .comp-chip button:hover { color: var(--ink); background: var(--line); }
+  #comp-charts .hist-grid { grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); }
+  #comp-charts svg.mini-chart { height: 200px; }
+  .b-rank { font-family: var(--mono); color: var(--ink-muted); font-size: .7rem; width: 26px; display: inline-block; }
+  .map-legend {
+    position: absolute; left: 12px; bottom: 12px; z-index: 3;
+    background: rgba(11,15,26,.9); border: 1px solid var(--line); border-radius: 10px;
+    padding: .55rem .75rem; font-family: var(--mono); font-size: .7rem; color: var(--ink-soft);
+    min-width: 160px;
+  }
+  .map-legend .lg-title { color: var(--ink); font-weight: 700; margin-bottom: .4rem; display: block; }
+  .map-legend .lg-ramp { height: 8px; border-radius: 4px; margin-bottom: .3rem; }
+  .map-legend .lg-scale { display: flex; justify-content: space-between; }
+  .map-hint {
+    position: absolute; right: 12px; bottom: 12px; z-index: 3; font-family: var(--mono); font-size: .68rem;
+    color: var(--ink-muted); background: rgba(11,15,26,.75); border-radius: 8px; padding: .3rem .55rem;
+  }
+
+  .hover-tip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(11,15,26,.97); border: 1px solid var(--line); border-radius: 10px;
+    padding: .6rem .75rem; font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+    box-shadow: 0 12px 28px -12px rgba(0,0,0,.7); opacity: 0; transition: opacity .1s;
+    min-width: 168px; white-space: nowrap;
+  }
+  .hover-tip .t-name { color: var(--ink); font-weight: 700; margin-bottom: .3rem; display: block; letter-spacing: .02em; }
+  .hover-tip .t-uf { color: var(--ink-muted); font-weight: 500; }
+  .hover-tip .t-row { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: .15rem; }
+  .hover-tip .t-val { color: var(--ink); font-weight: 700; }
+  .hover-tip .t-key { display: flex; align-items: center; gap: .4rem; color: var(--ink-soft); }
+  .hover-tip .t-key i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: none; }
+
+  /* ---- detail drawer ---- */
+  .drawer-empty { color: var(--ink-muted); font-size: .82rem; padding: .4rem 0 .2rem; }
+  .drawer-body { display: none; }
+  .drawer-body.open { display: block; }
+  .drawer-grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 1.4rem; }
+  @media (max-width: 900px) { .drawer-grid { grid-template-columns: 1fr; } }
+  .drawer-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  .drawer-head h2 { font-size: 1.15rem; margin: 0; color: var(--ink); }
+  .drawer-head .badge {
+    font-family: var(--mono); font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .drawer-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .9rem; margin: .7rem 0; }
+  .dm { font-size: .78rem; }
+  .dm .dm-label { color: var(--ink-muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; }
+  .dm .dm-value { color: var(--ink); font-weight: 700; font-family: var(--mono); }
+  .drawer-spark { margin-top: .4rem; }
+  .drawer-cnae-row { display: flex; align-items: center; gap: .5rem; font-size: .74rem; padding: .2rem 0; }
+  .drawer-cnae-row .cn-label { flex: 1; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drawer-cnae-row .cn-bar { flex: 1.4; height: 8px; background: var(--surface-2); border-radius: 4px; position: relative; }
+  .drawer-cnae-row .cn-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; background: var(--teal); }
+  .drawer-cnae-row .cn-val { font-family: var(--mono); color: var(--ink); width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---- painel de histórico (5 métricas) ---- */
+  .hist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 1.3rem; margin: .8rem 0 1rem; }
+  .hist-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .hist-card .hc-title { font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: .3rem; }
+  .hist-card .hc-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--ink); margin-bottom: .3rem; }
+  .hist-card svg.mini-chart { display: block; width: 100%; height: 300px; overflow: visible; }
+  .hc-asof { font-family: var(--mono); font-size: .68rem; color: var(--ink-muted); margin-top: .35rem; cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
+  .hc-asof:hover { color: var(--ink-soft); text-decoration: underline; }
+  .hist-card .x-ticks { margin-top: .15rem; }
+  .mc-wrap { position: relative; }
+  .mc-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .mc-tip { min-width: 130px; font-size: .68rem; padding: .45rem .6rem; }
+  .mc-tip .t-row { justify-content: flex-start; gap: .5rem; }
+  .detail-section-title { font-size: .78rem; font-weight: 700; color: var(--ink); margin: 1rem 0 .4rem; }
+
+  /* ---- ranking bars ---- */
+  .bar-row { display: grid; grid-template-columns: 168px 1fr 70px; align-items: center; gap: .6rem; padding: .3rem 0; }
+  .bar-row.hi .b-label { color: var(--ink); font-weight: 700; }
+  .bar-row .b-label { font-size: .74rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; overflow: visible; }
+  .bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px 6px 6px 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .bar-row.hi .bar-track { box-shadow: 0 0 0 1px var(--ink-muted); }
+  .bar-row .b-value { font-family: var(--mono); font-size: .74rem; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ---- line chart (crédito/PIB histórico) ---- */
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--line); stroke-width: 1; }
+  .crosshair-line { stroke: var(--ink-soft); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; opacity: 0; }
+  .end-dot { pointer-events: none; }
+  .hover-catcher { position: absolute; inset: 0; cursor: crosshair; }
+  .pane-wrap { position: relative; }
+  .x-ticks { display: flex; justify-content: space-between; margin: .3rem 2px 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-muted); }
+
+  .table-view { display: none; margin-top: .8rem; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); padding-top: .6rem; }
+  .table-view.open { display: block; }
+  table.datatable { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  table.datatable th { text-align: left; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); padding: .4rem .5rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  table.datatable td { padding: .38rem .5rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  table.datatable td:first-child { font-family: var(--sans); color: var(--ink); }
+
+  .legend-row { display: flex; gap: 1.1rem; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: .45rem; font-size: .74rem; color: var(--ink-soft); font-family: var(--mono); }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+
+  .caveat-grid { display: grid; grid-template-columns: 1fr; gap: .3rem; }
+  footer.foot { margin-top: 2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); font-size: .74rem; color: var(--ink-muted); }
+  footer.foot p { margin: .25rem 0; }
+  footer.foot code { font-family: var(--mono); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
+
+  <main>
+    <header class="top">
+      <div>
+        <p class="eyebrow">Sistema Atividade Econômica</p>
+        <div class="brand"><span class="dot"></span><h1>Mapa Regional — PIB, Crédito &amp; Empresas</h1></div>
+      </div>
+      <div class="as-of" id="as-of-line"></div>
+    </header>
+
+    <section class="summary-row" id="summary-row" aria-label="Resumo nacional"></section>
+
+    <section class="filter-row" role="group" aria-label="Filtros do mapa">
+      <div class="filter-group"><label for="f-uf">UF</label><select id="f-uf"></select></div>
+      <div class="filter-group"><label for="f-cnae">Seção CNAE</label><select id="f-cnae"></select></div>
+      <div class="filter-group"><label for="f-porte">Porte (PIB)</label><select id="f-porte"></select></div>
+      <button class="tbtn clear-filters" id="clear-filters">Limpar filtros</button>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Mapa de municípios</p>
+          <p class="card-sub" id="map-card-sub">Brasil por estado — passe o cursor para destacar, clique para entrar no estado e ver os municípios. A capital de cada UF vem sempre marcada com ★.</p>
+        </div>
+        <div class="search-wrap">
+          <input type="text" id="busca-municipio" placeholder="Buscar município… (ex: sao paulo)" autocomplete="off">
+          <div class="search-results" id="busca-resultados"></div>
+        </div>
+        <div class="pills" id="metric-pills" role="group" aria-label="Métrica do mapa"></div>
+      </div>
+      <div class="map-stage" id="map-stage">
+        <svg class="map-svg" id="svg-map"></svg>
+        <button class="btn-voltar" id="btn-voltar-brasil">◂ Brasil</button>
+        <div class="zoom-controls">
+          <button id="zoom-in" aria-label="Aumentar zoom">+</button>
+          <button id="zoom-out" aria-label="Diminuir zoom">−</button>
+          <button id="zoom-reset" aria-label="Resetar zoom" style="font-size:.62rem;">RESET</button>
+        </div>
+        <div class="map-legend" id="map-legend"></div>
+        <div class="map-hint" id="map-hint">passe o cursor sobre um estado · clique para entrar</div>
+        <div class="hover-tip" id="map-tip"></div>
+      </div>
+    </section>
+
+    <section class="card" id="drawer-card">
+      <div class="card-head">
+        <div><p class="card-title">Detalhamento</p><p class="card-sub">Clique num estado ou município no mapa (ou busque acima) para ver histórico de até 10 anos, crédito por rubrica e composição CNAE.</p></div>
+      </div>
+      <div class="drawer-empty" id="drawer-empty">Nenhum município selecionado ainda.</div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </section>
+
+    <section class="card" id="comparacao-card">
+      <div class="card-head">
+        <div><p class="card-title">Comparação de municípios</p><p class="card-sub">Escolha até 5 municípios para comparar lado a lado, ou selecione uma região para comparar automaticamente as capitais dos seus estados.</p></div>
+        <div class="filter-group"><label for="f-regiao-comp">Comparar região</label><select id="f-regiao-comp"></select></div>
+        <div class="search-wrap">
+          <input type="text" id="busca-comparacao" placeholder="Adicionar município à comparação…" autocomplete="off">
+          <div class="search-results" id="busca-comparacao-resultados"></div>
+        </div>
+      </div>
+      <div class="comp-chips" id="comp-chips"></div>
+      <div id="comp-charts"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Visão por UF</p><p class="card-sub">Ranking dos 27 estados pela métrica selecionada</p></div>
+        <div class="pills" id="uf-metric-pills" role="group" aria-label="Métrica do ranking por UF"></div>
+      </div>
+      <div id="bars-uf"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Recuperação Judicial, Extrajudicial e Falência por UF</p><p class="card-sub">Ranking dos 27 estados pela contagem de processos (CNJ DataJud) — última competência disponível</p></div>
+        <div class="pills" id="rj-metric-pills" role="group" aria-label="Categoria do ranking de RJ/Falência"></div>
+      </div>
+      <div id="bars-rj"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Atividade por seção CNAE</p><p class="card-sub">Empresas atuantes (CEMPRE) por seção — participação % sobre o total nacional</p></div>
+        <button class="tbtn" data-table-toggle="cnae">Ver tabela</button>
+      </div>
+      <div id="bars-cnae"></div>
+      <div class="table-view" id="table-cnae"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><p class="card-title">Histórico Crédito / PIB</p><p class="card-sub">Relação entre o saldo total de crédito do SFN e o PIB, série mensal (BACEN SGS)</p></div>
+        <button class="tbtn" id="cp-table-btn">Ver tabela</button>
+      </div>
+      <div class="legend-row" style="margin-bottom:.7rem;">
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Crédito / PIB (%)</span>
+      </div>
+      <div class="pane-wrap">
+        <svg class="chart" id="svg-creditopib"></svg>
+        <div class="hover-catcher" id="cp-catcher"></div>
+        <div class="hover-tip" id="cp-tip"></div>
+        <div class="x-ticks" id="cp-xticks"></div>
+      </div>
+      <div class="table-view" id="table-cp"></div>
+    </section>
+
+    <footer class="foot">
+      <div class="caveat-grid">
+        <p>Fonte: IBGE (PIB municipal, CEMPRE), BACEN (SGS, ESTBAN), Novo CAGED — cruzados por município via código IBGE.</p>
+        <p>Contorno de UF: malha territorial oficial do IBGE, projeção equiretangular simples (sem correção de curvatura) — os municípios, ao entrar num estado, seguem sendo posicionados por latitude/longitude (sem fronteira própria na base).</p>
+        <p>Empresas: contagem agregada por seção CNAE (IBGE CEMPRE) — não há nome de empresa nem porte por município nesta base; o filtro de CNAE opera sobre as seções mais relevantes de cada cidade.</p>
+        <p>Crédito bancário por modalidade/taxa só existe em nível nacional no BACEN — por UF, mostramos a rubrica ESTBAN (empréstimos, financiamentos, crédito rural etc.); a comparação "saldo por porte" no painel de UF é por grande região (Norte/Nordeste/Centro-Oeste/Sudeste/Sul), não por estado.</p>
+        <p id="composicao-caveat"></p>
+      </div>
+    </footer>
+  </main>
+
+<script>
+const DADOS = __DADOS_JSON__;
+
+function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function svgns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const COR = {
+  teal: getVar('--teal'), tealLite: getVar('--teal-lite'),
+  amber: getVar('--amber'), amberLite: getVar('--amber-lite'),
+  rose: getVar('--rose'), roseLite: getVar('--rose-lite'),
+  violet: getVar('--violet'), violetLite: getVar('--violet-lite'),
+  green: getVar('--green'), greenLite: getVar('--green-lite'),
+  red: getVar('--red'),
+  inkMuted: getVar('--ink-muted'), surface: getVar('--surface'),
+};
+
+// ---------- formatting ----------
+function competenciaLabel(c) {
+  const s = String(c);
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return `${meses[parseInt(s.slice(4,6),10)-1]}/${s.slice(2,4)}`;
+}
+// pib_mil e credito_total_mil vêm em R$ mil (milhares) — não em milhões como
+// as séries SGS do dashboard de crédito — por isso os limiares aqui são 1e9/1e6/1e3.
+function fmtReaisCompacto(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v/1e9).toLocaleString('pt-BR',{maximumFractionDigits:2}) + ' tri';
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' bi';
+  return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+}
+function fmtContagem(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return (v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi';
+  if (abs >= 1e3) return (v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mil';
+  return Math.round(v).toLocaleString('pt-BR');
+}
+function fmtPct(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}) + '%'; }
+function fmtNum(v, casas=1) { return v == null ? '—' : v.toLocaleString('pt-BR',{minimumFractionDigits:casas,maximumFractionDigits:casas}); }
+
+function lerpCor(hexA, hexB, t) {
+  const a = hexA.match(/\w\w/g).map(h => parseInt(h,16));
+  const b = hexB.match(/\w\w/g).map(h => parseInt(h,16));
+  const c = a.map((v,i) => Math.round(v + (b[i]-v)*t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// ---------- header / summary ----------
+function renderHeader() {
+  const m = DADOS.meta;
+  document.getElementById('as-of-line').innerHTML =
+    `PIB <b>${m.ano_pib}</b> · composição setorial <b>${m.ano_composicao}</b> · ` +
+    `crédito <b>${competenciaLabel(m.competencia_credito)}</b> · emprego <b>${competenciaLabel(m.competencia_caged)}</b>`;
+  document.getElementById('composicao-caveat').textContent =
+    `Composição setorial do PIB (agro/indústria/serviços) reflete ${m.ano_composicao} — última divulgada pelo IBGE; o PIB total já cobre ${m.ano_pib}.`;
+
+  const cards = [
+    { label: 'PIB total (Brasil)', value: fmtReaisCompacto(m.total_pib_mil) },
+    { label: 'Crédito bancário total', value: fmtReaisCompacto(m.total_credito_mil) },
+    { label: 'Empresas atuantes', value: fmtContagem(m.total_empresas) },
+    { label: 'População coberta', value: fmtContagem(m.total_populacao) },
+    { label: 'Municípios', value: fmtContagem(m.total_municipios) },
+  ];
+  document.getElementById('summary-row').innerHTML = cards.map(c => `
+    <div class="stat"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`).join('');
+}
+
+// ---------- metric definitions (map + UF ranking share these) ----------
+const METRICAS = [
+  { key: 'pib', label: 'PIB', fmt: fmtReaisCompacto, hue: 'teal', diverging: false },
+  { key: 'cred', label: 'Crédito bancário', fmt: fmtReaisCompacto, hue: 'amber', diverging: false },
+  { key: 'credpib', label: 'Crédito / PIB', fmt: v => fmtPct(v,1), hue: 'rose', diverging: false },
+  { key: 'cagedpmil', label: 'Emprego (saldo 12M /mil hab)', fmt: v => fmtNum(v,2), hue: 'violet', diverging: true },
+  { key: 'emppmil', label: 'Empresas /mil hab', fmt: v => fmtNum(v,1), hue: 'green', diverging: false },
+];
+const HUE_LITE = { teal: COR.tealLite, amber: COR.amberLite, rose: COR.roseLite, violet: COR.violetLite, green: COR.greenLite };
+const HUE_BASE = { teal: COR.teal, amber: COR.amber, rose: COR.rose, violet: COR.violet, green: COR.green };
+// só para os gráficos históricos do detalhamento/comparação — não entram no
+// mapa nem no ranking por UF (esses continuam com as 5 métricas de sempre)
+const METRICAS_HIST = METRICAS.concat([
+  { key: 'pibpc', label: 'PIB per capita', fmt: v => 'R$ ' + fmtContagem(v), hue: 'green' },
+  { key: 'populacao', label: 'População', fmt: v => fmtContagem(v), hue: 'violet' },
+]);
+// Recuperação Judicial/Extrajudicial/Falência (DataJud/CNJ) — só existe por
+// UF (não por município), por isso fica fora de METRICAS_HIST (usado pelos
+// dois tipos de drawer) e só é anexado no drawer de UF (ver abrirDetalheUF).
+// `variacao: true` liga a legenda de Δ mês anterior / Δ 12M nesses 3 cards.
+const METRICAS_RJ = [
+  { key: 'rj', label: 'Recuperação Judicial', fmt: v => fmtContagem(v), hue: 'rose', variacao: true },
+  { key: 'extrajudicial', label: 'Recuperação Extrajudicial', fmt: v => fmtContagem(v), hue: 'amber', variacao: true },
+  { key: 'falencia', label: 'Falência', fmt: v => fmtContagem(v), hue: 'violet', variacao: true },
+];
+let metricaAtual = 'pib';
+
+// ---------- projeção lat/lng -> SVG (esquemática, sem correção de curvatura) ----------
+const BBOX = { latMin: -34, latMax: 6, lngMin: -74, lngMax: -32 };
+const MAPW = 760, MAPH = 720;
+function proj(lat, lng) {
+  const x = (lng - BBOX.lngMin) / (BBOX.lngMax - BBOX.lngMin) * MAPW;
+  const y = (BBOX.latMax - lat) / (BBOX.latMax - BBOX.latMin) * MAPH;
+  return [x, y];
+}
+
+const municipioPorCod = new Map(DADOS.municipios.map(m => [m.cod, m]));
+const ufPorSigla = new Map(DADOS.ufs.map(u => [u.uf, u]));
+let circleEls = new Map(); // cod -> <circle>
+let view = { x: 0, y: 0, k: 1 };
+let filtro = { uf: '', cnae: '', porte: '' };
+let nivelMapa = 'brasil'; // 'brasil' (contorno de UF) | 'uf' (bolhas de município)
+
+// ---------- geometria: contorno real de UF (GeoJSON do IBGE, malha territorial) ----------
+function pathDeGeometria(geom) {
+  if (!geom) return '';
+  const poligonos = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+  let d = '';
+  for (const aneis of poligonos) {
+    for (const anel of aneis) {
+      const pts = anel.map(([lng, lat]) => proj(lat, lng));
+      d += 'M ' + pts.map(p => p.join(',')).join(' L ') + ' Z ';
+    }
+  }
+  return d;
+}
+function criarEstrela(cx, cy, rOut) {
+  const rIn = rOut * 0.45;
+  let d = '';
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? rOut : rIn;
+    const ang = -Math.PI/2 + i*Math.PI/5;
+    d += (i === 0 ? 'M' : 'L') + (cx + r*Math.cos(ang)).toFixed(2) + ',' + (cy + r*Math.sin(ang)).toFixed(2) + ' ';
+  }
+  return d + 'Z';
+}
+
+function extentMetrica(key) {
+  let min = Infinity, max = -Infinity;
+  for (const m of DADOS.municipios) {
+    const v = m[key];
+    if (v == null) continue;
+    const abs = Math.abs(v);
+    if (abs < min) min = abs;
+    if (abs > max) max = abs;
+  }
+  if (!isFinite(min)) { min = 0; max = 1; }
+  return [min, max];
+}
+
+function corBolha(mDef, valor, min, max) {
+  if (valor == null) return 'rgba(142,160,189,.12)';
+  if (mDef.diverging) {
+    const t = max > 0 ? Math.min(1, Math.abs(valor) / max) : 0;
+    return valor >= 0 ? lerpCor('#141a2a', HUE_BASE.violet, t) : lerpCor('#141a2a', COR.red, t);
+  }
+  const t = max > min ? (Math.abs(valor) - min) / (max - min) : 0.5;
+  return lerpCor(HUE_LITE[mDef.hue], HUE_BASE[mDef.hue], Math.max(0, Math.min(1, t)));
+}
+
+function raioBolha(valor, min, max) {
+  if (valor == null) return 1.4;
+  const RMIN = 1.6, RMAX = 11;
+  const abs = Math.abs(valor);
+  const t = max > min ? (abs - min) / (max - min) : 0;
+  return RMIN + (RMAX - RMIN) * Math.sqrt(Math.max(0, Math.min(1, t)));
+}
+
+function buildMap() {
+  const svg = document.getElementById('svg-map');
+  svg.setAttribute('viewBox', `0 0 ${MAPW} ${MAPH}`);
+  svg.innerHTML = '';
+
+  const defs = svgns('defs');
+  defs.innerHTML = `<filter id="elevate-shadow" x="-50%" y="-50%" width="200%" height="200%">
+    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.55"/>
+  </filter>`;
+  svg.appendChild(defs);
+
+  const viewport = svgns('g');
+  viewport.id = 'mapa-viewport';
+  svg.appendChild(viewport);
+
+  const ufsLayer = svgns('g');
+  ufsLayer.id = 'ufs-layer';
+  viewport.appendChild(ufsLayer);
+
+  const bubbles = svgns('g');
+  bubbles.id = 'bubbles-group';
+  bubbles.style.display = 'none';
+  viewport.appendChild(bubbles);
+
+  const capitais = svgns('g');
+  capitais.id = 'capitais-layer';
+  viewport.appendChild(capitais);
+
+  for (const uf of Object.keys(DADOS.malha_uf)) {
+    const path = svgns('path');
+    path.setAttribute('d', pathDeGeometria(DADOS.malha_uf[uf]));
+    path.setAttribute('class', 'uf-hull');
+    path.setAttribute('data-uf', uf);
+    ufsLayer.appendChild(path);
+  }
+
+  for (const m of DADOS.municipios) {
+    if (m.lat == null || m.lng == null || m.capital) continue; // capital só existe como estrela, não como bolha
+    const [x, y] = proj(m.lat, m.lng);
+    const c = svgns('circle');
+    c.setAttribute('cx', x); c.setAttribute('cy', y);
+    c.setAttribute('r', 1.6);
+    c.setAttribute('class', 'map-bubble');
+    c.setAttribute('data-cod', m.cod);
+    c.style.fill = 'rgba(142,160,189,.12)';
+    bubbles.appendChild(c);
+    circleEls.set(m.cod, c);
+  }
+
+  for (const m of DADOS.municipios) {
+    if (!m.capital || m.lat == null) continue;
+    const [x, y] = proj(m.lat, m.lng);
+    const estrela = svgns('path');
+    estrela.setAttribute('d', criarEstrela(x, y, 6));
+    estrela.setAttribute('class', 'capital-marker');
+    estrela.setAttribute('data-cod', m.cod);
+    capitais.appendChild(estrela);
+  }
+
+  aplicarMetrica();
+  aplicarMetricaUfMapa();
+  aplicarFiltros();
+  setupMapInteraction(svg, viewport);
+  setupUfHover(ufsLayer);
+}
+
+function aplicarMetrica() {
+  const mDef = METRICAS.find(m => m.key === metricaAtual);
+  const [min, max] = extentMetrica(mDef.key);
+  for (const m of DADOS.municipios) {
+    const el = circleEls.get(m.cod);
+    if (!el) continue;
+    const v = m[mDef.key];
+    el.setAttribute('r', raioBolha(v, min, max));
+    el.style.fill = corBolha(mDef, v, min, max);
+  }
+  renderLegend(mDef, min, max);
+}
+
+function extentMetricaUf(campo) {
+  let min = Infinity, max = -Infinity;
+  for (const u of DADOS.ufs) {
+    const v = u[campo];
+    if (v == null) continue;
+    const abs = Math.abs(v);
+    if (abs < min) min = abs;
+    if (abs > max) max = abs;
+  }
+  if (!isFinite(min)) { min = 0; max = 1; }
+  return [min, max];
+}
+
+function aplicarMetricaUfMapa() {
+  const mDef = METRICAS.find(m => m.key === metricaAtual);
+  const campo = UF_FIELD[mDef.key];
+  const [min, max] = extentMetricaUf(campo);
+  document.querySelectorAll('#ufs-layer .uf-hull').forEach(path => {
+    const uf = ufPorSigla.get(path.dataset.uf);
+    const valor = uf ? uf[campo] : null;
+    path.style.fill = corBolha(mDef, valor, min, max);
+  });
+}
+
+function renderLegend(mDef, min, max) {
+  const el = document.getElementById('map-legend');
+  let ramp;
+  if (mDef.diverging) {
+    ramp = `linear-gradient(90deg, ${COR.red}, #141a2a, ${HUE_BASE.violet})`;
+  } else {
+    ramp = `linear-gradient(90deg, ${HUE_LITE[mDef.hue]}, ${HUE_BASE[mDef.hue]})`;
+  }
+  el.innerHTML = `
+    <span class="lg-title">${mDef.label}</span>
+    <div class="lg-ramp" style="background:${ramp}"></div>
+    <div class="lg-scale">
+      <span>${mDef.diverging ? '−' + mDef.fmt(max) : mDef.fmt(min)}</span>
+      <span>${mDef.diverging ? '+' + mDef.fmt(max) : mDef.fmt(max)}</span>
+    </div>`;
+}
+
+function aplicarFiltros() {
+  for (const m of DADOS.municipios) {
+    const el = circleEls.get(m.cod);
+    if (!el) continue;
+    let visivel = true;
+    if (filtro.uf && m.uf !== filtro.uf) visivel = false;
+    if (filtro.porte && m.fpib !== filtro.porte) visivel = false;
+    if (visivel && filtro.cnae) {
+      visivel = (m.cnae || []).some(([nome]) => nome === filtro.cnae);
+    }
+    el.classList.toggle('dim', !visivel);
+  }
+}
+
+// ---------- pan & zoom ----------
+function aplicarView() {
+  const g = document.getElementById('mapa-viewport');
+  g.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+}
+
+function zoomEm(fator, cx, cy) {
+  const novoK = Math.max(0.8, Math.min(18, view.k * fator));
+  view.x = cx - (cx - view.x) * (novoK / view.k);
+  view.y = cy - (cy - view.y) * (novoK / view.k);
+  view.k = novoK;
+  aplicarView();
+}
+
+function resetView() { view = { x: 0, y: 0, k: 1 }; aplicarView(); }
+
+function zoomParaUF(uf) {
+  const cidades = DADOS.municipios.filter(m => m.uf === uf && m.lat != null);
+  if (!cidades.length) return;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for (const m of cidades) {
+    const [x,y] = proj(m.lat, m.lng);
+    minX=Math.min(minX,x); maxX=Math.max(maxX,x);
+    minY=Math.min(minY,y); maxY=Math.max(maxY,y);
+  }
+  const padX = Math.max(20, (maxX-minX)*0.25), padY = Math.max(20, (maxY-minY)*0.25);
+  minX-=padX; maxX+=padX; minY-=padY; maxY+=padY;
+  const k = Math.max(1, Math.min(18, Math.min(MAPW/(maxX-minX), MAPH/(maxY-minY))));
+  view.k = k;
+  view.x = MAPW/2 - (minX+maxX)/2*k;
+  view.y = MAPH/2 - (minY+maxY)/2*k;
+  aplicarView();
+}
+
+function setupMapInteraction(svg, g) {
+  let arrastando = false, ultimo = null;
+  svg.addEventListener('pointerdown', ev => {
+    arrastando = true; ultimo = [ev.clientX, ev.clientY];
+    svg.classList.add('dragging'); svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove', ev => {
+    if (arrastando) {
+      const rect = svg.getBoundingClientRect();
+      const escala = MAPW / rect.width;
+      view.x += (ev.clientX - ultimo[0]) * escala;
+      view.y += (ev.clientY - ultimo[1]) * escala;
+      ultimo = [ev.clientX, ev.clientY];
+      aplicarView();
+      esconderTip();
+      return;
+    }
+    tratarHover(ev, svg);
+  });
+  svg.addEventListener('pointerup', () => { arrastando = false; svg.classList.remove('dragging'); });
+  svg.addEventListener('pointerleave', () => { arrastando = false; svg.classList.remove('dragging'); esconderTip(); });
+  svg.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const escala = MAPW / rect.width;
+    const cx = (ev.clientX - rect.left) * escala, cy = (ev.clientY - rect.top) * escala;
+    zoomEm(ev.deltaY < 0 ? 1.15 : 0.87, cx, cy);
+  }, { passive: false });
+  svg.addEventListener('click', ev => {
+    if (ev.target.classList.contains('capital-marker') && ev.target.dataset.cod) { irParaMunicipio(ev.target.dataset.cod); return; }
+    if (ev.target.tagName === 'circle' && ev.target.dataset.cod) abrirDetalheMunicipio(ev.target.dataset.cod);
+  });
+
+  document.getElementById('zoom-in').addEventListener('click', () => zoomEm(1.3, MAPW/2, MAPH/2));
+  document.getElementById('zoom-out').addEventListener('click', () => zoomEm(1/1.3, MAPW/2, MAPH/2));
+  document.getElementById('zoom-reset').addEventListener('click', () => {
+    if (nivelMapa === 'uf') zoomParaUF(filtro.uf); else resetView();
+  });
+  document.getElementById('btn-voltar-brasil').addEventListener('click', voltarParaBrasil);
+}
+
+// ---------- hover "elevar" + clique nos hulls de UF ----------
+function setupUfHover(g) {
+  g.addEventListener('pointerover', ev => {
+    const el = ev.target.closest('[data-uf]');
+    if (!el) return;
+    el.classList.add('uf-hover');
+    g.appendChild(el); // reordena pro topo do DOM (z-order de pintura em SVG)
+  });
+  g.addEventListener('pointerout', ev => {
+    const el = ev.target.closest('[data-uf]');
+    if (el) el.classList.remove('uf-hover');
+  });
+  g.addEventListener('pointermove', ev => {
+    const el = ev.target.closest('[data-uf]');
+    if (el) mostrarTooltipUF(el.dataset.uf, ev);
+    else if (nivelMapa === 'brasil') esconderTip();
+  });
+  g.addEventListener('pointerleave', esconderTip);
+  g.addEventListener('click', ev => {
+    const el = ev.target.closest('[data-uf]');
+    if (el) entrarNaUF(el.dataset.uf);
+  });
+}
+
+function mostrarTooltipUF(uf, ev) {
+  const u = ufPorSigla.get(uf);
+  if (!u) return;
+  const mDef = METRICAS.find(d => d.key === metricaAtual);
+  const campo = UF_FIELD[mDef.key];
+  const rect = document.getElementById('map-stage').getBoundingClientRect();
+  const tip = document.getElementById('map-tip');
+  tip.innerHTML = `
+    <span class="t-name">${uf} <span class="t-uf">· ${u.regiao}</span></span>
+    <div class="t-row"><span>${mDef.label}</span><span class="t-val">${mDef.fmt(u[campo])}</span></div>
+    <div class="t-row"><span>Clique para entrar</span><span class="t-val">▸</span></div>`;
+  tip.style.opacity = 1;
+  let left = ev.clientX - rect.left + 16, top = ev.clientY - rect.top - 10;
+  if (left + 190 > rect.width) left = ev.clientX - rect.left - 190 - 16;
+  tip.style.left = left + 'px'; tip.style.top = Math.max(0, top) + 'px';
+}
+
+// ---------- drill-down Brasil ↔ UF ----------
+function entrarNaUF(uf) {
+  nivelMapa = 'uf';
+  filtro.uf = uf;
+  document.getElementById('f-uf').value = uf;
+  document.getElementById('ufs-layer').style.display = 'none';
+  document.getElementById('bubbles-group').style.display = 'inline';
+  document.getElementById('btn-voltar-brasil').style.display = 'block';
+  document.getElementById('map-hint').textContent = 'arraste para mover · scroll para zoom · clique numa cidade';
+  document.getElementById('map-card-sub').textContent =
+    `Municípios de ${uf} — clique numa cidade para ver o detalhamento completo.`;
+  aplicarFiltros();
+  zoomParaUF(uf);
+  esconderTip();
+  abrirDetalheUF(uf);
+}
+
+function voltarParaBrasil() {
+  nivelMapa = 'brasil';
+  filtro.uf = '';
+  document.getElementById('f-uf').value = '';
+  document.getElementById('ufs-layer').style.display = '';
+  document.getElementById('bubbles-group').style.display = 'none';
+  document.getElementById('btn-voltar-brasil').style.display = 'none';
+  document.getElementById('map-hint').textContent = 'passe o cursor sobre um estado · clique para entrar';
+  document.getElementById('map-card-sub').textContent =
+    'Brasil por estado — passe o cursor para destacar, clique para entrar no estado e ver os municípios. A capital de cada UF vem sempre marcada com ★.';
+  aplicarFiltros();
+  resetView();
+  esconderTip();
+}
+
+function tratarHover(ev, svg) {
+  const tip = document.getElementById('map-tip');
+  const isCapital = ev.target.classList && ev.target.classList.contains('capital-marker');
+  if (ev.target.tagName !== 'circle' && !isCapital) { esconderTip(); return; }
+  const m = municipioPorCod.get(ev.target.dataset.cod);
+  if (!m) return;
+  const mDef = METRICAS.find(d => d.key === metricaAtual);
+  const rect = document.getElementById('map-stage').getBoundingClientRect();
+  tip.innerHTML = `
+    <span class="t-name">${m.nome}${m.capital ? ' ★' : ''} <span class="t-uf">· ${m.uf}</span></span>
+    <div class="t-row"><span>${mDef.label}</span><span class="t-val">${mDef.fmt(m[mDef.key])}</span></div>
+    <div class="t-row"><span>PIB per capita</span><span class="t-val">${m.pibpc != null ? 'R$ '+fmtContagem(m.pibpc) : '—'}</span></div>`;
+  tip.style.opacity = 1;
+  let left = ev.clientX - rect.left + 16, top = ev.clientY - rect.top - 10;
+  if (left + 190 > rect.width) left = ev.clientX - rect.left - 190 - 16;
+  tip.style.left = left + 'px'; tip.style.top = Math.max(0, top) + 'px';
+}
+function esconderTip() { document.getElementById('map-tip').style.opacity = 0; }
+
+// ---------- painel de detalhe (município e UF) — 5 métricas históricas ----------
+function serieHistorica(obj, key, pop) {
+  const per = DADOS.meta.periodos;
+  if (key === 'pib') return { periodos: per.pib, valores: obj.hist_pib || [], mensal: false };
+  if (key === 'cred') return { periodos: per.credito, valores: obj.hist_credito || [], mensal: true };
+  if (key === 'credpib') {
+    const idxAno = new Map(per.pib.map((a, i) => [a, i]));
+    const valores = per.credito.map((comp, i) => {
+      const ip = idxAno.get(Math.floor(comp / 100));
+      const pib = (ip != null && obj.hist_pib) ? obj.hist_pib[ip] : null;
+      const cred = obj.hist_credito ? obj.hist_credito[i] : null;
+      return (pib && cred != null) ? (cred / pib * 100) : null;
+    });
+    return { periodos: per.credito, valores, mensal: true };
+  }
+  if (key === 'cagedpmil') {
+    const valores = (obj.hist_emprego || []).map(v => (v != null && pop) ? (v / pop * 1000) : null);
+    return { periodos: per.emprego, valores, mensal: true };
+  }
+  if (key === 'emppmil') {
+    const valores = (obj.hist_empresas || []).map(v => (v != null && pop) ? (v / pop * 1000) : null);
+    return { periodos: per.empresas, valores, mensal: false };
+  }
+  if (key === 'populacao') {
+    // janela própria (mais recente que o PIB) — população real não fica
+    // escondida atrás do teto mais antigo do PIB
+    return { periodos: per.populacao, valores: obj.hist_populacao || [], mensal: false };
+  }
+  if (key === 'rj') return { periodos: per.rj_falencia, valores: obj.hist_rj || [], mensal: true };
+  if (key === 'extrajudicial') return { periodos: per.rj_falencia, valores: obj.hist_extrajudicial || [], mensal: true };
+  if (key === 'falencia') return { periodos: per.rj_falencia, valores: obj.hist_falencia || [], mensal: true };
+  if (key === 'pibpc') {
+    // renda per capita = PIB / população, ano a ano — usa hist_populacao_pib
+    // (população alinhada à MESMA janela do PIB, per.pib), não a série fresca
+    const valores = per.pib.map((_, i) => {
+      const pib = obj.hist_pib ? obj.hist_pib[i] : null;
+      const populacao = obj.hist_populacao_pib ? obj.hist_populacao_pib[i] : null;
+      return (pib != null && populacao) ? (pib * 1000 / populacao) : null;
+    });
+    return { periodos: per.pib, valores, mensal: false };
+  }
+  return { periodos: [], valores: [], mensal: false };
+}
+
+function renderMiniChart(svgEl, catcher, tip, periodos, valores, cor, fmt, mensal, titulo) {
+  const largura = 680, altura = 300;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+  const pontos = [];
+  for (let i = 0; i < periodos.length; i++) if (valores[i] != null) pontos.push([i, valores[i]]);
+  if (pontos.length < 2) {
+    svgEl.innerHTML = '<text x="12" y="140" fill="var(--ink-muted)" font-size="14">dado insuficiente</text>';
+    if (catcher) catcher.style.display = 'none';
+    return null;
+  }
+  const vals = pontos.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1;
+  const n = periodos.length;
+  const x = i => 14 + i / (n - 1) * (largura - 28);
+  const y = v => altura - 22 - ((v - min) / span) * (altura - 44);
+  const d = pontos.map(([i, v], k) => `${k === 0 ? 'M' : 'L'} ${x(i)},${y(v)}`).join(' ');
+
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 14); gl.setAttribute('x2', largura - 14);
+    gl.setAttribute('y1', altura * frac); gl.setAttribute('y2', altura * frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', d); lineEl.setAttribute('fill', 'none'); lineEl.setAttribute('stroke', cor);
+  lineEl.setAttribute('stroke-width', '3'); lineEl.setAttribute('stroke-linejoin', 'round'); lineEl.setAttribute('stroke-linecap', 'round');
+  svgEl.appendChild(lineEl);
+  const [li, lv] = pontos[pontos.length - 1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', x(li)); dot.setAttribute('cy', y(lv)); dot.setAttribute('r', 6);
+  dot.setAttribute('fill', cor); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 2);
+  svgEl.appendChild(dot);
+
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+  const hoverDot = svgns('circle');
+  hoverDot.setAttribute('r', 5.5); hoverDot.setAttribute('fill', cor);
+  hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 2);
+  hoverDot.style.opacity = 0;
+  svgEl.appendChild(hoverDot);
+
+  function mostrarIndice(idx) {
+    const v = valores[idx];
+    if (v == null) { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; return; }
+    const xi = x(idx), yi = y(v);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    hoverDot.setAttribute('cx', xi); hoverDot.setAttribute('cy', yi); hoverDot.style.opacity = 1;
+    tip.innerHTML = `<span class="t-name">${mensal ? competenciaLabel(periodos[idx]) : periodos[idx]}</span><div class="t-row"><span>${titulo}</span><span class="t-val">${fmt(v)}</span></div>`;
+    tip.style.opacity = 1;
+    const rect = catcher.getBoundingClientRect();
+    const xPix = xi / largura * (rect.width || largura);
+    let left = xPix + 10;
+    if (left + 150 > (rect.width || largura)) left = xPix - 150 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '-4px';
+  }
+
+  if (!catcher) return mostrarIndice;
+  catcher.style.display = 'block';
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    mostrarIndice(Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1)))));
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDot.style.opacity = 0; };
+  return mostrarIndice;
+}
+
+function captionVariacao(valores, ultimoIdx) {
+  if (ultimoIdx < 1) return '';
+  const atual = valores[ultimoIdx];
+  const anterior = valores[ultimoIdx - 1];
+  const anoAnterior = ultimoIdx >= 12 ? valores[ultimoIdx - 12] : null;
+  const partes = [];
+  if (anterior != null) {
+    const delta = atual - anterior;
+    const pct = anterior !== 0 ? (atual / anterior - 1) * 100 : null;
+    partes.push(`mês anterior: ${delta >= 0 ? '+' : ''}${fmtContagem(delta)}${pct != null ? ` (${pct >= 0 ? '+' : ''}${fmtPct(pct,0)})` : ''}`);
+  }
+  if (anoAnterior != null) {
+    const pct12 = anoAnterior !== 0 ? (atual / anoAnterior - 1) * 100 : null;
+    if (pct12 != null) partes.push(`12M: ${pct12 >= 0 ? '+' : ''}${fmtPct(pct12,0)}`);
+  }
+  return partes.length ? `<div class="card-sub" style="margin-top:.15rem;">Δ ${partes.join(' · ')}</div>` : '';
+}
+
+function blocosHistorico(obj, pop, metricas = METRICAS_HIST) {
+  return metricas.map(mDef => {
+    const { periodos, valores, mensal } = serieHistorica(obj, mDef.key, pop);
+    const uid = mDef.key + '_' + Math.random().toString(36).slice(2, 8);
+    let ultimoIdx = -1;
+    for (let i = valores.length - 1; i >= 0; i--) { if (valores[i] != null) { ultimoIdx = i; break; } }
+    const ultimo = ultimoIdx >= 0 ? valores[ultimoIdx] : null;
+    const n = periodos.length;
+    const idxs = n <= 2 ? [0, Math.max(n - 1, 0)] : [0, Math.round((n - 1) / 2), n - 1];
+    const labelPeriodo = p => mensal ? competenciaLabel(p) : String(p);
+    const ticks = n ? idxs.map(i => `<span>${labelPeriodo(periodos[i])}</span>`).join('') : '';
+    const asof = ultimoIdx >= 0
+      ? `<button class="hc-asof" data-uid="${uid}" data-idx="${ultimoIdx}" title="Clique para destacar o dado mais recente no gráfico">* dado mais recente: ${labelPeriodo(periodos[ultimoIdx])}</button>`
+      : '';
+    const variacao = mDef.variacao ? captionVariacao(valores, ultimoIdx) : '';
+    const html = `<div class="hist-card">
+      <div class="hc-title">${mDef.label}</div>
+      <div class="hc-value">${ultimo != null ? mDef.fmt(ultimo) : '—'}</div>
+      ${variacao}
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="mc_${uid}"></svg>
+        <div class="mc-catcher" id="cat_${uid}"></div>
+        <div class="hover-tip mc-tip" id="tip_${uid}"></div>
+      </div>
+      <div class="x-ticks">${ticks}</div>
+      ${asof}
+    </div>`;
+    return { html, uid, periodos, valores, mensal, fmt: mDef.fmt, titulo: mDef.label, cor: HUE_BASE[mDef.hue], ultimoIdx };
+  });
+}
+
+function blocoBarras(itens, cor) {
+  if (!itens || !itens.length) return '<p class="drawer-empty">Sem dados disponíveis.</p>';
+  const max = Math.max(1, ...itens.map(i => i[1]));
+  return itens.map(([nome, val]) => `
+    <div class="drawer-cnae-row">
+      <span class="cn-label" title="${nome}">${nome}</span>
+      <div class="cn-bar"><div class="cn-fill" style="width:${val/max*100}%; background:${cor};"></div></div>
+      <span class="cn-val">${fmtReaisCompacto(val)}</span>
+    </div>`).join('');
+}
+
+function montarHistGrid(hist) {
+  hist.forEach(h => {
+    const svgEl = document.getElementById('mc_' + h.uid);
+    const catcher = document.getElementById('cat_' + h.uid);
+    const tip = document.getElementById('tip_' + h.uid);
+    if (!svgEl) return;
+    const mostrarIndice = renderMiniChart(svgEl, catcher, tip, h.periodos, h.valores, h.cor, h.fmt, h.mensal, h.titulo);
+    const botaoAsof = document.querySelector(`.hc-asof[data-uid="${h.uid}"]`);
+    if (botaoAsof && mostrarIndice) {
+      botaoAsof.addEventListener('click', () => mostrarIndice(h.ultimoIdx));
+    }
+  });
+}
+
+function abrirDetalheMunicipio(cod) {
+  const m = municipioPorCod.get(cod);
+  if (!m) return;
+  document.getElementById('drawer-empty').style.display = 'none';
+  const body = document.getElementById('drawer-body');
+  body.classList.add('open');
+
+  const cnaeHtml = m.cnae && m.cnae.length
+    ? blocoBarras(m.cnae, 'var(--teal)')
+    : '<p class="drawer-empty">Sem dados de empresas por seção para este município.</p>';
+  const estbanHtml = blocoBarras(m.estban, 'var(--amber)');
+  const hist = blocosHistorico(m, m.pop);
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${m.nome}</h2>
+      <span class="badge">${m.uf}</span>
+      <span class="badge">${m.regiao}</span>
+      ${m.capital ? '<span class="badge">★ Capital</span>' : ''}
+      ${m.rkbr ? `<span class="badge">#${m.rkbr} PIB Brasil</span>` : ''}
+    </div>
+    <div class="drawer-metrics">
+      <div class="dm"><div class="dm-label">População</div><div class="dm-value">${fmtContagem(m.pop)}</div></div>
+      <div class="dm"><div class="dm-label">PIB per capita</div><div class="dm-value">${m.pibpc != null ? 'R$ '+fmtContagem(m.pibpc) : '—'}</div></div>
+      <div class="dm"><div class="dm-label">Porte (PIB)</div><div class="dm-value" style="font-family:var(--sans);font-weight:600;">${(m.fpib||'—').replace(/^\d\.\s*/,'')}</div></div>
+      <div class="dm"><div class="dm-label">Porte (população)</div><div class="dm-value" style="font-family:var(--sans);font-weight:600;">${(m.fpop||'—').replace(/^\d\.\s*/,'')}</div></div>
+    </div>
+    <p class="detail-section-title">Histórico (${DADOS.meta.periodos.pib.length} anos de PIB · série mensal de crédito e emprego)</p>
+    <div class="hist-grid">${hist.map(h => h.html).join('')}</div>
+    <div class="drawer-grid">
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Crédito bancário por rubrica (ESTBAN, última competência)</p>
+        ${estbanHtml}
+      </div>
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Empresas por seção CNAE (top ${(m.cnae||[]).length})</p>
+        ${cnaeHtml}
+      </div>
+    </div>`;
+  montarHistGrid(hist);
+}
+
+const ROTULO_PORTE_REGIAO = { MICRO: 'Microempresa', PEQUENO: 'Pequeno porte' };
+function rjParticipacaoHtml(uf) {
+  const rj = DADOS.rj_falencia;
+  if (!rj || !rj.competencia) return '';
+  const linha = rj.ranking.find(r => r.uf === uf);
+  if (!linha) return '';
+  const campos = [['rj', 'Recuperação Judicial'], ['extrajudicial', 'Recuperação Extrajudicial'], ['falencia', 'Falência']];
+  const itens = campos.map(([k, label]) => {
+    const v = linha[k], total = rj.nacional[k];
+    if (v == null || !total) return null;
+    const pct = v / total * 100;
+    const ordenado = [...rj.ranking].filter(r => r[k] != null).sort((a, b) => b[k] - a[k]);
+    const rank = ordenado.findIndex(r => r.uf === uf) + 1;
+    return `${label}: ${fmtPct(pct,1)} do Brasil (#${rank} de ${ordenado.length})`;
+  }).filter(Boolean);
+  if (!itens.length) return '';
+  return `<p class="card-sub" style="margin-top:.5rem;">Comparativo — participação no total nacional em ${competenciaLabel(rj.competencia)}: ${itens.join(' · ')}</p>`;
+}
+function abrirDetalheUF(uf) {
+  const u = ufPorSigla.get(uf);
+  if (!u) return;
+  document.getElementById('drawer-empty').style.display = 'none';
+  const body = document.getElementById('drawer-body');
+  body.classList.add('open');
+
+  const estbanHtml = blocoBarras(u.estban, 'var(--amber)');
+  const hist = blocosHistorico(u, u.populacao, METRICAS_HIST.concat(METRICAS_RJ));
+  const regiaoItens = (u.saldo_regiao || []).map(([cliente, porte, valor]) =>
+    [`${cliente === 'MEI' ? 'MEI' : 'PJ'} · ${ROTULO_PORTE_REGIAO[porte] || porte || '—'}`, valor]);
+  const regiaoHtml = blocoBarras(regiaoItens, 'var(--rose)');
+
+  body.innerHTML = `
+    <div class="drawer-head">
+      <h2>${uf}</h2>
+      <span class="badge">${u.regiao}</span>
+      <span class="badge">${fmtContagem(u.populacao)} hab.</span>
+    </div>
+    <p class="detail-section-title">Histórico (${DADOS.meta.periodos.pib.length} anos de PIB · série mensal de crédito, emprego e Recuperação Judicial/Falência)</p>
+    <div class="hist-grid">${hist.map(h => h.html).join('')}</div>
+    ${rjParticipacaoHtml(uf)}
+    <div class="drawer-grid">
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Crédito bancário por rubrica (ESTBAN, última competência)</p>
+        ${estbanHtml}
+      </div>
+      <div>
+        <p class="card-sub" style="margin-bottom:.5rem;">Saldo de crédito por porte — região ${u.regiao} (contexto BACEN)</p>
+        ${regiaoHtml}
+        <p class="card-sub" style="margin-top:.5rem; font-size:.7rem;">Referente à grande região (${u.regiao}), não exclusivo desta UF — o BACEN não publica esse detalhamento por estado.</p>
+      </div>
+    </div>`;
+  montarHistGrid(hist);
+}
+
+// ---------- filtros (selects) ----------
+function popularFiltros() {
+  const ufs = [...new Set(DADOS.municipios.map(m => m.uf))].sort();
+  const selUf = document.getElementById('f-uf');
+  selUf.innerHTML = '<option value="">Todas</option>' + ufs.map(u => `<option value="${u}">${u}</option>`).join('');
+  selUf.addEventListener('change', () => {
+    destacarUF(selUf.value);
+    if (selUf.value) entrarNaUF(selUf.value); else voltarParaBrasil();
+  });
+
+  const cnaes = DADOS.cnae_nacional.map(c => c.secao_nome);
+  const selCnae = document.getElementById('f-cnae');
+  selCnae.innerHTML = '<option value="">Todas</option>' + cnaes.map(c => `<option value="${c}">${c}</option>`).join('');
+  selCnae.addEventListener('change', () => { filtro.cnae = selCnae.value; aplicarFiltros(); destacarCNAE(filtro.cnae); });
+
+  const portes = ['1. Acima de R$ 10 bi','2. R$ 1 bi a 10 bi','3. R$ 100 mi a 1 bi','4. Até R$ 100 mi'];
+  const selPorte = document.getElementById('f-porte');
+  selPorte.innerHTML = '<option value="">Todos</option>' + portes.map(p => `<option value="${p}">${p.replace(/^\d\.\s*/,'')}</option>`).join('');
+  selPorte.addEventListener('change', () => { filtro.porte = selPorte.value; aplicarFiltros(); });
+
+  document.getElementById('clear-filters').addEventListener('click', () => {
+    filtro = { uf: '', cnae: '', porte: '' };
+    selUf.value = ''; selCnae.value = ''; selPorte.value = '';
+    destacarUF(''); destacarCNAE('');
+    voltarParaBrasil();
+  });
+}
+
+// ---------- busca de município (autocomplete) ----------
+function normalizarTexto(s) {
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+}
+function setupBusca() {
+  const input = document.getElementById('busca-municipio');
+  const resultados = document.getElementById('busca-resultados');
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = normalizarTexto(input.value);
+      if (q.length < 2) { resultados.classList.remove('open'); resultados.innerHTML = ''; return; }
+      const nomeNorm = m => m.nome_norm ? m.nome_norm.toLowerCase() : normalizarTexto(m.nome);
+      const candidatos = DADOS.municipios.filter(m => nomeNorm(m).includes(q));
+      candidatos.sort((a, b) => {
+        const an = nomeNorm(a), bn = nomeNorm(b);
+        const aPref = an.startsWith(q) ? 0 : 1, bPref = bn.startsWith(q) ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+        return (b.pib || 0) - (a.pib || 0);
+      });
+      const top = candidatos.slice(0, 8);
+      resultados.innerHTML = top.length
+        ? top.map(m => `<div class="search-item" data-cod="${m.cod}">${m.nome}${m.capital ? ' ★' : ''} <span class="search-uf">${m.uf}</span></div>`).join('')
+        : '<div class="search-empty">Nenhum município encontrado</div>';
+      resultados.classList.add('open');
+    }, 80);
+  });
+  resultados.addEventListener('click', ev => {
+    const item = ev.target.closest('[data-cod]');
+    if (!item) return;
+    irParaMunicipio(item.dataset.cod);
+    input.value = ''; resultados.innerHTML = ''; resultados.classList.remove('open');
+  });
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('.search-wrap')) resultados.classList.remove('open');
+  });
+}
+function irParaMunicipio(cod) {
+  const m = municipioPorCod.get(cod);
+  if (!m) return;
+  destacarUF(m.uf);
+  entrarNaUF(m.uf);
+  abrirDetalheMunicipio(cod);
+  document.getElementById('drawer-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+// ---------- comparação de municípios (até 5) ----------
+// paleta de até 9 (a maior região, Nordeste, tem 9 estados/capitais) —
+// validada com o script do skill dataviz: lightness band, chroma floor e
+// CVD (protan/deutan) all-pairs OK; pior par fica na faixa "floor" (~9.9,
+// entre 8 e 12), aceitável porque nome da cidade sempre acompanha a cor
+// (chip, legenda do tooltip) — nunca é cor sozinha carregando a identidade.
+const COMPARE_COLORS = [
+  HUE_BASE.teal, HUE_BASE.amber, HUE_BASE.rose, HUE_BASE.violet, HUE_BASE.green,
+  '#a21caf', '#be123c', '#b45309', '#1d4ed8',
+];
+let comparativo = [];
+const REGIAO_UFS = {
+  Norte: ['AC','AM','AP','PA','RO','RR','TO'],
+  Nordeste: ['AL','BA','CE','MA','PB','PE','PI','RN','SE'],
+  'Centro-Oeste': ['DF','GO','MT','MS'],
+  Sudeste: ['ES','MG','RJ','SP'],
+  Sul: ['PR','RS','SC'],
+};
+
+function setupBuscaComparacao() {
+  const input = document.getElementById('busca-comparacao');
+  const resultados = document.getElementById('busca-comparacao-resultados');
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = normalizarTexto(input.value);
+      if (q.length < 2) { resultados.classList.remove('open'); resultados.innerHTML = ''; return; }
+      const nomeNorm = m => m.nome_norm ? m.nome_norm.toLowerCase() : normalizarTexto(m.nome);
+      const candidatos = DADOS.municipios
+        .filter(m => !comparativo.includes(m.cod))
+        .filter(m => nomeNorm(m).includes(q));
+      candidatos.sort((a, b) => {
+        const aPref = nomeNorm(a).startsWith(q) ? 0 : 1, bPref = nomeNorm(b).startsWith(q) ? 0 : 1;
+        if (aPref !== bPref) return aPref - bPref;
+        return (b.pib || 0) - (a.pib || 0);
+      });
+      const top = candidatos.slice(0, 8);
+      resultados.innerHTML = top.length
+        ? top.map(m => `<div class="search-item" data-cod="${m.cod}">${m.nome} <span class="search-uf">${m.uf}</span></div>`).join('')
+        : '<div class="search-empty">Nenhum município encontrado</div>';
+      resultados.classList.add('open');
+    }, 80);
+  });
+  resultados.addEventListener('click', ev => {
+    const item = ev.target.closest('[data-cod]');
+    if (!item) return;
+    adicionarComparativo(item.dataset.cod);
+    input.value = ''; resultados.innerHTML = ''; resultados.classList.remove('open');
+  });
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('#comparacao-card .search-wrap')) resultados.classList.remove('open');
+  });
+}
+
+function adicionarComparativo(cod) {
+  if (comparativo.includes(cod) || comparativo.length >= 5) return;
+  comparativo.push(cod);
+  renderComparacaoChips();
+  renderComparacaoCharts();
+}
+
+function setupSeletorRegiaoComparativo() {
+  const sel = document.getElementById('f-regiao-comp');
+  sel.innerHTML = '<option value="">Comparação manual</option>' +
+    Object.keys(REGIAO_UFS).map(r => `<option value="${r}">${r} (${REGIAO_UFS[r].length} capitais)</option>`).join('');
+  sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    selecionarRegiaoComparativo(sel.value);
+  });
+}
+
+function selecionarRegiaoComparativo(regiao) {
+  const ufs = REGIAO_UFS[regiao];
+  const capitais = DADOS.municipios
+    .filter(m => m.capital && ufs.includes(m.uf))
+    .sort((a, b) => ufs.indexOf(a.uf) - ufs.indexOf(b.uf));
+  comparativo = capitais.map(m => m.cod); // modo região ignora o teto de 5 — mostra todas as capitais
+  renderComparacaoChips();
+  renderComparacaoCharts();
+  document.getElementById('comparacao-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+function renderComparacaoChips() {
+  const cont = document.getElementById('comp-chips');
+  const input = document.getElementById('busca-comparacao');
+  input.disabled = comparativo.length >= 5;
+  input.placeholder = comparativo.length >= 5 ? 'Seleção cheia — remova um item para trocar' : 'Adicionar município à comparação…';
+  cont.innerHTML = comparativo.length
+    ? comparativo.map((cod, i) => {
+        const m = municipioPorCod.get(cod);
+        return `<span class="comp-chip" style="--chip-cor:${COMPARE_COLORS[i]}">${m.nome} · ${m.uf}<button data-cod="${cod}" aria-label="Remover ${m.nome}">×</button></span>`;
+      }).join('')
+    : '<span class="drawer-empty">Nenhum município selecionado — busque acima (até 5).</span>';
+  cont.querySelectorAll('button[data-cod]').forEach(b => b.addEventListener('click', () => {
+    comparativo = comparativo.filter(c => c !== b.dataset.cod);
+    renderComparacaoChips();
+    renderComparacaoCharts();
+  }));
+}
+
+function renderComparacaoCharts() {
+  const wrap = document.getElementById('comp-charts');
+  if (!comparativo.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="hist-grid">${METRICAS_HIST.map(mDef => `
+    <div class="hist-card">
+      <div class="hc-title">${mDef.label}</div>
+      <div class="mc-wrap">
+        <svg class="mini-chart" id="cchart_${mDef.key}"></svg>
+        <div class="mc-catcher" id="ccat_${mDef.key}"></div>
+        <div class="hover-tip mc-tip" id="ctip_${mDef.key}" style="min-width:170px;"></div>
+      </div>
+      <div class="x-ticks" id="cticks_${mDef.key}"></div>
+    </div>`).join('')}</div>`;
+  METRICAS_HIST.forEach(desenharComparacao);
+}
+
+function desenharComparacao(mDef) {
+  const svgEl = document.getElementById('cchart_' + mDef.key);
+  const catcher = document.getElementById('ccat_' + mDef.key);
+  const tip = document.getElementById('ctip_' + mDef.key);
+  const largura = 720, altura = 200;
+  svgEl.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svgEl.innerHTML = '';
+
+  const series = comparativo.map((cod, i) => {
+    const m = municipioPorCod.get(cod);
+    const { periodos, valores, mensal } = serieHistorica(m, mDef.key, m.pop);
+    return { nome: m.nome, cor: COMPARE_COLORS[i], periodos, valores, mensal };
+  });
+  const periodos = series[0].periodos, mensal = series[0].mensal;
+  const n = periodos.length;
+  const todosValores = series.flatMap(s => s.valores.filter(v => v != null));
+  if (!todosValores.length) {
+    svgEl.innerHTML = '<text x="6" y="45" fill="var(--ink-muted)" font-size="11">sem dado suficiente</text>';
+    catcher.style.display = 'none';
+    document.getElementById('cticks_' + mDef.key).innerHTML = '';
+    return;
+  }
+  catcher.style.display = 'block';
+  const min = Math.min(...todosValores), max = Math.max(...todosValores);
+  const span = (max - min) || 1;
+  const x = i => 6 + i / Math.max(n - 1, 1) * (largura - 12);
+  const y = v => altura - 8 - ((v - min) / span) * (altura - 16);
+
+  for (const frac of [0.25, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1', 6); gl.setAttribute('x2', largura - 6);
+    gl.setAttribute('y1', altura * frac); gl.setAttribute('y2', altura * frac);
+    gl.setAttribute('class', 'gridline');
+    svgEl.appendChild(gl);
+  }
+
+  const hoverDots = [];
+  for (const s of series) {
+    const pontos = [];
+    for (let i = 0; i < n; i++) if (s.valores[i] != null) pontos.push([i, s.valores[i]]);
+    if (pontos.length >= 2) {
+      const d = pontos.map(([i, v], k) => `${k === 0 ? 'M' : 'L'} ${x(i)},${y(v)}`).join(' ');
+      const lineEl = svgns('path');
+      lineEl.setAttribute('d', d); lineEl.setAttribute('fill', 'none'); lineEl.setAttribute('stroke', s.cor);
+      lineEl.setAttribute('stroke-width', '2'); lineEl.setAttribute('stroke-linejoin', 'round'); lineEl.setAttribute('stroke-linecap', 'round');
+      svgEl.appendChild(lineEl);
+    }
+    const hoverDot = svgns('circle');
+    hoverDot.setAttribute('r', 3.4); hoverDot.setAttribute('fill', s.cor);
+    hoverDot.setAttribute('stroke', COR.surface); hoverDot.setAttribute('stroke-width', 1.4);
+    hoverDot.style.opacity = 0;
+    svgEl.appendChild(hoverDot);
+    hoverDots.push(hoverDot);
+  }
+  const crosshair = svgns('line');
+  crosshair.setAttribute('y1', 0); crosshair.setAttribute('y2', altura);
+  crosshair.setAttribute('class', 'crosshair-line');
+  svgEl.appendChild(crosshair);
+
+  const idxs = n <= 2 ? [0, n - 1] : [0, Math.round((n - 1) / 2), n - 1];
+  document.getElementById('cticks_' + mDef.key).innerHTML =
+    idxs.map(i => `<span>${mensal ? competenciaLabel(periodos[i]) : periodos[i]}</span>`).join('');
+
+  catcher.onpointermove = ev => {
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.min(n - 1, Math.max(0, Math.round(frac * (n - 1))));
+    const xi = x(idx);
+    crosshair.setAttribute('x1', xi); crosshair.setAttribute('x2', xi); crosshair.style.opacity = 1;
+    let linhas = '';
+    series.forEach((s, i) => {
+      const v = s.valores[idx];
+      hoverDots[i].style.opacity = v != null ? 1 : 0;
+      if (v != null) { hoverDots[i].setAttribute('cx', xi); hoverDots[i].setAttribute('cy', y(v)); }
+      linhas += `<div class="t-row"><span class="t-key"><i style="background:${s.cor}"></i>${s.nome}</span><span class="t-val">${v != null ? mDef.fmt(v) : '—'}</span></div>`;
+    });
+    tip.innerHTML = `<span class="t-name">${mensal ? competenciaLabel(periodos[idx]) : periodos[idx]}</span>${linhas}`;
+    tip.style.opacity = 1;
+    const xPix = xi / largura * rect.width;
+    let left = xPix + 10;
+    if (left + 190 > rect.width) left = xPix - 190 - 10;
+    tip.style.left = left + 'px'; tip.style.top = '2px';
+  };
+  catcher.onpointerleave = () => { tip.style.opacity = 0; crosshair.style.opacity = 0; hoverDots.forEach(h => h.style.opacity = 0); };
+}
+
+// ---------- pills (métrica do mapa) ----------
+function renderMetricPills() {
+  const wrap = document.getElementById('metric-pills');
+  wrap.innerHTML = METRICAS.map(m =>
+    `<button class="pill${m.key===metricaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      metricaAtual = btn.dataset.key;
+      wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+      aplicarMetrica();
+      aplicarMetricaUfMapa();
+    });
+  });
+}
+
+// ---------- ranking por UF ----------
+let ufMetricaAtual = 'pib';
+const UF_FIELD = { pib: 'pib_mil', cred: 'credito_mil', credpib: 'credito_pib_pct', cagedpmil: 'caged_12m_por_mil_hab', emppmil: 'empresas_por_mil_hab' };
+let ufSelecionada = '';
+
+function renderUfPills() {
+  const wrap = document.getElementById('uf-metric-pills');
+  wrap.innerHTML = METRICAS.map(m =>
+    `<button class="pill${m.key===ufMetricaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ufMetricaAtual = btn.dataset.key;
+      wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+      renderUfBars();
+    });
+  });
+}
+
+function renderUfBars() {
+  const mDef = METRICAS.find(m => m.key === ufMetricaAtual);
+  const campo = UF_FIELD[ufMetricaAtual];
+  const dados = [...DADOS.ufs].filter(u => u[campo] != null).sort((a,b) => Math.abs(b[campo]) - Math.abs(a[campo]));
+  const max = Math.max(...dados.map(d => Math.abs(d[campo])), 1);
+  const cont = document.getElementById('bars-uf');
+  cont.innerHTML = dados.map((d, i) => {
+    const pct = Math.abs(d[campo]) / max * 100;
+    const hi = d.uf === ufSelecionada;
+    return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-uf="${d.uf}" style="cursor:pointer;" aria-label="#${i+1} ${d.uf}: ${mDef.fmt(d[campo])}">
+      <span class="b-label"><span class="b-rank">#${i+1}</span>${d.uf} <span style="color:var(--ink-muted);">· ${d.regiao}</span></span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--${mDef.hue});"></div></div>
+      <span class="b-value">${mDef.fmt(d[campo])}</span>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-uf]').forEach(el => {
+    el.addEventListener('click', () => { destacarUF(el.dataset.uf); document.getElementById('f-uf').value = el.dataset.uf; entrarNaUF(el.dataset.uf); });
+  });
+}
+
+function destacarUF(uf) { ufSelecionada = uf; renderUfBars(); }
+
+// ---------- ranking por UF: Recuperação Judicial / Extrajudicial / Falência ----------
+let rjCategoriaAtual = 'rj';
+function renderRjPills() {
+  const wrap = document.getElementById('rj-metric-pills');
+  wrap.innerHTML = METRICAS_RJ.map(m =>
+    `<button class="pill${m.key===rjCategoriaAtual?' active':''}" data-key="${m.key}" style="--pill-hue:var(--${m.hue})">${m.label}</button>`).join('');
+  wrap.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      rjCategoriaAtual = btn.dataset.key;
+      wrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+      renderRjBars();
+    });
+  });
+}
+function renderRjBars() {
+  const rj = DADOS.rj_falencia;
+  const cont = document.getElementById('bars-rj');
+  if (!rj || !rj.competencia) { cont.innerHTML = '<p class="drawer-empty">Sem dados disponíveis.</p>'; return; }
+  const mDef = METRICAS_RJ.find(m => m.key === rjCategoriaAtual);
+  const dados = [...rj.ranking].filter(d => d[rjCategoriaAtual] != null).sort((a,b) => b[rjCategoriaAtual] - a[rjCategoriaAtual]);
+  const total = rj.nacional[rjCategoriaAtual] || 0;
+  const max = Math.max(...dados.map(d => d[rjCategoriaAtual]), 1);
+  cont.innerHTML = `<p class="card-sub" style="margin-bottom:.5rem;">${competenciaLabel(rj.competencia)} · Brasil: ${fmtContagem(total)} processos</p>` +
+    dados.map((d, i) => {
+      const v = d[rjCategoriaAtual];
+      const pct = v / max * 100;
+      const hi = d.uf === ufSelecionada;
+      const infoUf = ufPorSigla.get(d.uf);
+      return `<div class="bar-row${hi?' hi':''}" tabindex="0" data-uf="${d.uf}" style="cursor:pointer;" aria-label="#${i+1} ${d.uf}: ${fmtContagem(v)}">
+        <span class="b-label"><span class="b-rank">#${i+1}</span>${d.uf} <span style="color:var(--ink-muted);">· ${infoUf ? infoUf.regiao : ''}</span></span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:var(--${mDef.hue});"></div></div>
+        <span class="b-value">${fmtContagem(v)}</span>
+      </div>`;
+    }).join('');
+  cont.querySelectorAll('[data-uf]').forEach(el => {
+    el.addEventListener('click', () => { destacarUF(el.dataset.uf); document.getElementById('f-uf').value = el.dataset.uf; entrarNaUF(el.dataset.uf); abrirDetalheUF(el.dataset.uf); });
+  });
+}
+
+// ---------- ranking CNAE nacional ----------
+let cnaeSelecionada = '';
+function renderCnaeBars() {
+  const dados = [...DADOS.cnae_nacional].filter(c => c.empresas != null).sort((a,b) => b.empresas - a.empresas);
+  const max = Math.max(...dados.map(d => d.empresas), 1);
+  const cont = document.getElementById('bars-cnae');
+  cont.innerHTML = dados.map((d, i) => {
+    const hi = d.secao_nome === cnaeSelecionada;
+    return `<div class="bar-row${hi?' hi':''}" tabindex="0" aria-label="#${i+1} ${d.secao_nome}: ${fmtContagem(d.empresas)}">
+      <span class="b-label" title="${d.secao_nome}"><span class="b-rank">#${i+1}</span>${d.secao_nome}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${d.empresas/max*100}%; background:var(--teal);"></div></div>
+      <span class="b-value">${fmtPct(d.participacao_empresas_pct)}</span>
+    </div>`;
+  }).join('');
+  const tEl = document.getElementById('table-cnae');
+  tEl.innerHTML = `<table class="datatable"><thead><tr><th>Seção</th><th>Empresas</th><th>Participação</th><th>Saldo emprego 12M</th></tr></thead><tbody>${
+    dados.map(d => `<tr><td>${d.secao_nome}</td><td>${fmtContagem(d.empresas)}</td><td>${fmtPct(d.participacao_empresas_pct)}</td><td>${d.caged_saldo_12m != null ? fmtContagem(d.caged_saldo_12m) : '—'}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+function destacarCNAE(nome) { cnaeSelecionada = nome; renderCnaeBars(); }
+
+// ---------- histórico crédito/PIB (linha única) ----------
+let cpLayout = null, cpDados = null;
+function escala(valores, altura, margemTopo=10, margemBase=6) {
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const span = (max - min) || 1;
+  return v => altura - margemBase - ((v - min) / span) * (altura - margemTopo - margemBase);
+}
+function renderCreditoPib() {
+  cpDados = DADOS.credito_pib_historico.map(([c, v]) => ({ competencia: c, valor: v }));
+  const svg = document.getElementById('svg-creditopib');
+  const largura = svg.parentElement.clientWidth || 900, altura = 150;
+  svg.setAttribute('viewBox', `0 0 ${largura} ${altura}`);
+  svg.innerHTML = '';
+  const n = cpDados.length;
+  const padL = 6, padR = 6;
+  const x = i => padL + (i/(Math.max(n-1,1))) * (largura - padL - padR);
+  const y = escala(cpDados.map(d => d.valor), altura);
+
+  for (const frac of [0.25, 0.75]) {
+    const gl = svgns('line');
+    gl.setAttribute('x1',padL); gl.setAttribute('x2',largura-padR);
+    gl.setAttribute('y1',altura*frac); gl.setAttribute('y2',altura*frac);
+    gl.setAttribute('class','gridline');
+    svg.appendChild(gl);
+  }
+  const pts = cpDados.map((d,i) => [x(i), y(d.valor)]);
+  const lineEl = svgns('path');
+  lineEl.setAttribute('d', 'M ' + pts.map(p => p.join(',')).join(' L '));
+  lineEl.setAttribute('fill','none'); lineEl.setAttribute('stroke',COR.teal);
+  lineEl.setAttribute('stroke-width','2'); lineEl.setAttribute('stroke-linejoin','round'); lineEl.setAttribute('stroke-linecap','round');
+  svg.appendChild(lineEl);
+
+  const last = pts[pts.length-1];
+  const dot = svgns('circle');
+  dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]); dot.setAttribute('r', 4.5);
+  dot.setAttribute('fill', COR.teal); dot.setAttribute('stroke', COR.surface); dot.setAttribute('stroke-width', 2);
+  svg.appendChild(dot);
+
+  const ch = svgns('line');
+  ch.setAttribute('x1', last[0]); ch.setAttribute('x2', last[0]);
+  ch.setAttribute('y1', 0); ch.setAttribute('y2', altura);
+  ch.setAttribute('class', 'crosshair-line'); ch.id = 'cp-crosshair';
+  svg.appendChild(ch);
+
+  cpLayout = { x, largura, altura };
+  const idxs = n <= 2 ? [0, n-1] : [0, Math.round((n-1)/2), n-1];
+  document.getElementById('cp-xticks').innerHTML = idxs.map(i => `<span>${competenciaLabel(cpDados[i].competencia)}</span>`).join('');
+  renderCpTable();
+}
+function renderCpTable() {
+  const rows = [...cpDados].reverse().map(d => `<tr><td>${competenciaLabel(d.competencia)}</td><td>${fmtPct(d.valor)}</td></tr>`).join('');
+  document.getElementById('table-cp').innerHTML = `<table class="datatable"><thead><tr><th>Competência</th><th>Crédito / PIB</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function setupCpHover() {
+  const catcher = document.getElementById('cp-catcher');
+  const tip = document.getElementById('cp-tip');
+  catcher.addEventListener('pointermove', ev => {
+    if (!cpDados || !cpLayout) return;
+    const rect = catcher.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    const idx = Math.round(frac * (cpDados.length - 1));
+    const d = cpDados[idx];
+    if (!d) return;
+    const xPix = cpLayout.x(idx) / cpLayout.largura * rect.width;
+    const ch = document.getElementById('cp-crosshair');
+    ch.setAttribute('x1', cpLayout.x(idx)); ch.setAttribute('x2', cpLayout.x(idx)); ch.style.opacity = 1;
+    tip.innerHTML = `<span class="t-name">${competenciaLabel(d.competencia)}</span><div class="t-row"><span>Crédito/PIB</span><span class="t-val">${fmtPct(d.valor)}</span></div>`;
+    tip.style.opacity = 1;
+    let left = xPix + 16, top = ev.clientY - rect.top - 10;
+    if (left + 170 > rect.width) left = xPix - 170 - 16;
+    tip.style.left = left + 'px'; tip.style.top = Math.max(0, top) + 'px';
+  });
+  catcher.addEventListener('pointerleave', () => { tip.style.opacity = 0; document.getElementById('cp-crosshair').style.opacity = 0; });
+}
+
+// ---------- table toggles ----------
+function setupTableToggles() {
+  document.querySelectorAll('[data-table-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = document.getElementById('table-' + btn.dataset.tableToggle);
+      t.classList.toggle('open');
+      btn.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+    });
+  });
+  document.getElementById('cp-table-btn').addEventListener('click', e => {
+    const t = document.getElementById('table-cp');
+    t.classList.toggle('open');
+    e.target.textContent = t.classList.contains('open') ? 'Ocultar tabela' : 'Ver tabela';
+  });
+}
+
+// ---------- init ----------
+function init() {
+  renderHeader();
+  popularFiltros();
+  setupBusca();
+  setupBuscaComparacao();
+  setupSeletorRegiaoComparativo();
+  renderComparacaoChips();
+  renderMetricPills();
+  buildMap();
+  renderUfPills();
+  renderUfBars();
+  renderRjPills();
+  renderRjBars();
+  renderCnaeBars();
+  renderCreditoPib();
+  setupCpHover();
+  setupTableToggles();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderCreditoPib, 120); });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
