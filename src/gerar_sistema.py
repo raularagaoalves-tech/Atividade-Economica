@@ -496,22 +496,21 @@ function traduzErroFirebase(err) {{
   const db = firebase.firestore();
   window.SISTEMA_AUTH.db = db;
 
-  // sinalizadores setados logo antes de uma acao explicita do usuario
-  // (login/cadastro), consumidos pelo UNICO callback que efetivamente
+  // sinalizador setado logo antes de uma acao explicita do usuario
+  // (login/cadastro), consumido pelo UNICO callback que efetivamente
   // libera o app (onAuthStateChanged) — evita logar 'login' duas vezes
   // (uma pela acao explicita, outra pela sessao restaurada no reload)
   let logarLoginPendente = false;
-  let cadastroNovoPendente = false;
 
-  async function aoAutenticar(user, logarLogin, ehCadastroNovo) {{
+  async function aoAutenticar(user, logarLogin) {{
     const perfilRef = db.collection('profiles').doc(user.uid);
     let perfilSnap = await perfilRef.get();
     if (!perfilSnap.exists) {{
-      if (!ehCadastroNovo) {{
-        authMostrarMsg('Perfil não encontrado. Saia e tente entrar de novo.', 'erro');
-        document.getElementById('auth-logout').style.display = 'block';
-        return;
-      }}
+      // perfil ausente (cadastro novo, ou uma tentativa antiga que falhou
+      // no meio): cria aqui mesmo, em QUALQUER login — as regras do
+      // Firestore garantem que só se cria o proprio perfil e sempre
+      // nascendo pendente/sem privilegio, então não há risco em ser
+      // permissivo no cliente
       await perfilRef.set({{
         email: user.email, status: 'pendente', isAdmin: false,
         criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
@@ -552,14 +551,21 @@ function traduzErroFirebase(err) {{
 
   // fonte unica de verdade pro estado de login — dispara no load (sessao
   // restaurada, logarLogin=false) e apos signIn/signUp bem-sucedidos
-  // (logarLogin=true via a flag setada nos handlers de submit abaixo)
+  // (logarLogin=true via a flag setada nos handlers de submit abaixo).
+  // O catch é essencial: sem ele, uma falha na etapa pos-login (ex. regra
+  // do Firestore negando a leitura/criacao do perfil) rejeitaria em
+  // silencio e a tela ficaria "travada" sem nenhuma mensagem.
   auth.onAuthStateChanged(function(user) {{
     if (!user) return;
     const logar = logarLoginPendente;
-    const cadastroNovo = cadastroNovoPendente;
     logarLoginPendente = false;
-    cadastroNovoPendente = false;
-    aoAutenticar(user, logar, cadastroNovo);
+    aoAutenticar(user, logar).catch(function(err) {{
+      console.error('Erro pos-autenticacao:', err);
+      authMostrarMsg('Conta autenticada, mas houve um erro ao carregar seu perfil: ' +
+        (err && err.code ? err.code : (err && err.message ? err.message : 'erro desconhecido')) +
+        ' — atualize a página (F5) e tente entrar de novo.', 'erro');
+      document.getElementById('auth-logout').style.display = 'block';
+    }});
   }});
 
   document.querySelectorAll('[data-auth-tab]').forEach(function(btn) {{
@@ -592,11 +598,9 @@ function traduzErroFirebase(err) {{
     if (senha.length < 4) {{ authMostrarMsg('A senha precisa ter pelo menos 4 caracteres.', 'erro'); return; }}
     try {{
       logarLoginPendente = true;
-      cadastroNovoPendente = true;
       await auth.createUserWithEmailAndPassword(email, senha);
     }} catch (err) {{
       logarLoginPendente = false;
-      cadastroNovoPendente = false;
       authMostrarMsg(traduzErroFirebase(err), 'erro');
     }}
   }});
