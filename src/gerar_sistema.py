@@ -37,8 +37,8 @@ SRC = Path(__file__).resolve().parent
 # placeholder abaixo, o site gerado NÃO exige login (mostra um aviso e
 # libera acesso direto) — assim o resto do pipeline continua funcionando
 # normalmente antes de você terminar a configuração.
-SUPABASE_URL = "COLE_AQUI_A_URL_DO_SEU_PROJETO_SUPABASE"
-SUPABASE_ANON_KEY = "COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO_SUPABASE"
+SUPABASE_URL = "https://xfbninedexxmypfypbdn.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmYm5pbmVkZXh4bXlwZnlwYmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0MjUyOTMsImV4cCI6MjEwMDAwMTI5M30.1X0qPXFt3OFjmuiicrwFs4TZsC0vR7Z48quXnJdXhkM"
 
 PREFIXOS = {"credito": "cr", "mapa": "mp", "pib": "pb", "geral": "vg", "rj": "rj", "if": "if", "governanca": "gv"}
 
