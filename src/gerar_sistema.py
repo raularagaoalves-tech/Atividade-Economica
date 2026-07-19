@@ -33,12 +33,25 @@ REPORTS = ROOT / "reports"
 SRC = Path(__file__).resolve().parent
 
 # Governança (login/cadastro/auditoria) — preencha depois de criar o projeto
-# no Supabase (ver PUBLICAR.md, passo 1). Enquanto ficarem com os valores
-# placeholder abaixo, o site gerado NÃO exige login (mostra um aviso e
-# libera acesso direto) — assim o resto do pipeline continua funcionando
-# normalmente antes de você terminar a configuração.
-SUPABASE_URL = "https://xfbninedexxmypfypbdn.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmYm5pbmVkZXh4bXlwZnlwYmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0MjUyOTMsImV4cCI6MjEwMDAwMTI5M30.1X0qPXFt3OFjmuiicrwFs4TZsC0vR7Z48quXnJdXhkM"
+# no Firebase (ver PUBLICAR.md, passo 1). Enquanto ficar com o placeholder
+# abaixo, o site gerado NÃO exige login (mostra um aviso e libera acesso
+# direto) — assim o resto do pipeline continua funcionando normalmente
+# antes de você terminar a configuração. Esses valores são públicos por
+# design (o mesmo princípio do anon key do Supabase) — a segurança de
+# verdade mora nas regras do Firestore (firebase/firestore.rules), não em
+# esconder esta config.
+FIREBASE_CONFIG = {
+    "apiKey": "COLE_AQUI_A_APIKEY",
+    "authDomain": "COLE_AQUI_O_AUTHDOMAIN",
+    "projectId": "COLE_AQUI_O_PROJECTID",
+    "storageBucket": "COLE_AQUI_O_STORAGEBUCKET",
+    "appId": "COLE_AQUI_O_APPID",
+}
+# admin permanente — nunca depende de nenhum campo do banco (ver a mesma
+# regra espelhada em firebase/firestore.rules, que é quem garante isso de
+# verdade; esta constante só evita mostrar a tela de "aguardando
+# aprovação" pra essa conta no navegador).
+ADMIN_EMAIL_FIXO = "raularagaoalves@gmail.com"
 
 PREFIXOS = {"credito": "cr", "mapa": "mp", "pib": "pb", "geral": "vg", "rj": "rj", "if": "if", "governanca": "gv"}
 
@@ -363,7 +376,7 @@ def _string_literal_js(texto: str) -> str:
 # aprovação) bem-sucedidas; ver montar_auth_js() pro comportamento
 AUTH_HTML = """
   <div class="auth-nao-configurado-banner" style="display:none;">
-    Login não configurado ainda (SUPABASE_URL/SUPABASE_ANON_KEY em branco em gerar_sistema.py) —
+    Login não configurado ainda (FIREBASE_CONFIG em branco em gerar_sistema.py) —
     acesso liberado sem autenticação. Ver PUBLICAR.md.
   </div>
   <div class="auth-overlay" id="auth-overlay">
@@ -405,18 +418,34 @@ AUTH_HTML = """
 
 
 def montar_auth_js() -> str:
-    """Autenticação (Supabase Auth) + gate de aprovação + log de auditoria
-    de login/logout — ver supabase/schema.sql pro lado do banco. Se
-    SUPABASE_URL/SUPABASE_ANON_KEY ainda forem os placeholders, libera o
-    app direto (sem overlay), com um aviso — não trava o pipeline antes da
-    configuração ser feita."""
-    url_json = json.dumps(SUPABASE_URL)
-    key_json = json.dumps(SUPABASE_ANON_KEY)
+    """Autenticação (Firebase Auth) + gate de aprovação + log de auditoria
+    de login/logout/visita — ver firebase/firestore.rules pro lado do
+    banco (é lá que a aprovação é REALMENTE garantida; o que está aqui é
+    só a experiência do usuário, não a fronteira de segurança). Se
+    FIREBASE_CONFIG ainda for o placeholder, libera o app direto (sem
+    overlay), com um aviso — não trava o pipeline antes da configuração
+    ser feita.
+
+    escapeHtml() fica aqui (não dentro de um IIFE) de propósito: é usada
+    por governanca_template.html também, que roda no seu próprio IIFE —
+    uma function declaration num <script> de nível superior vira global
+    (window), acessível de dentro de qualquer IIFE depois dela."""
+    config_json = json.dumps(FIREBASE_CONFIG, indent=2)
+    admin_json = json.dumps(ADMIN_EMAIL_FIXO)
     return f"""
-const SUPABASE_URL = {url_json};
-const SUPABASE_ANON_KEY = {key_json};
-const AUTH_CONFIGURADO = SUPABASE_URL.indexOf('https://') === 0 && SUPABASE_ANON_KEY.length > 20;
-window.SISTEMA_AUTH = {{ supabase: null, usuario: null, configurado: AUTH_CONFIGURADO }};
+const FIREBASE_CONFIG = {config_json};
+const ADMIN_EMAIL_FIXO = {admin_json};
+const AUTH_CONFIGURADO = !FIREBASE_CONFIG.apiKey.startsWith('COLE_AQUI');
+window.SISTEMA_AUTH = {{ db: null, usuario: null, configurado: AUTH_CONFIGURADO }};
+
+// escape defensivo — nada de HTML de e-mail digitado por usuário vira
+// markup na tela de ninguém, mesmo que o Firebase já valide formato de
+// e-mail no servidor (dupla proteção, barata)
+function escapeHtml(texto) {{
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}}
 
 function authMostrarMsg(texto, tipo) {{
   const el = document.getElementById('auth-msg');
@@ -440,6 +469,20 @@ function authLiberarApp(admin) {{
   // já preenchido, então o log de "visita" da primeira seção acontece
   if (window.irParaSecao) window.irParaSecao(location.hash ? location.hash.slice(1) : 'geral', false);
 }}
+// traduz os codigos de erro mais comuns do Firebase Auth pra mensagem em
+// portugues — sem isso, o usuario veria "auth/wrong-password" na tela
+function traduzErroFirebase(err) {{
+  const mapa = {{
+    'auth/email-already-in-use': 'Esse e-mail já tem uma conta cadastrada.',
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/weak-password': 'Senha muito curta (mínimo de 4 caracteres).',
+    'auth/wrong-password': 'E-mail ou senha inválidos.',
+    'auth/user-not-found': 'E-mail ou senha inválidos.',
+    'auth/invalid-credential': 'E-mail ou senha inválidos.',
+    'auth/too-many-requests': 'Muitas tentativas seguidas — aguarde alguns minutos e tente de novo.',
+  }};
+  return mapa[err.code] || 'Não foi possível completar a ação. Tente novamente.';
+}}
 
 (function initAuth() {{
   if (!AUTH_CONFIGURADO) {{
@@ -447,32 +490,76 @@ function authLiberarApp(admin) {{
     authLiberarApp(true);
     return;
   }}
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  window.SISTEMA_AUTH.supabase = sb;
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  window.SISTEMA_AUTH.db = db;
 
-  async function carregarPerfil(userId) {{
-    const r = await sb.from('profiles').select('*').eq('id', userId).single();
-    return r.data || null;
-  }}
+  // sinalizadores setados logo antes de uma acao explicita do usuario
+  // (login/cadastro), consumidos pelo UNICO callback que efetivamente
+  // libera o app (onAuthStateChanged) — evita logar 'login' duas vezes
+  // (uma pela acao explicita, outra pela sessao restaurada no reload)
+  let logarLoginPendente = false;
+  let cadastroNovoPendente = false;
 
-  async function aoAutenticar(user, logarLogin) {{
-    const perfil = await carregarPerfil(user.id);
-    if (!perfil) {{ authMostrarMsg('Perfil não encontrado. Saia e tente entrar de novo.', 'erro'); document.getElementById('auth-logout').style.display = 'block'; return; }}
-    if (perfil.status === 'pendente') {{
+  async function aoAutenticar(user, logarLogin, ehCadastroNovo) {{
+    const perfilRef = db.collection('profiles').doc(user.uid);
+    let perfilSnap = await perfilRef.get();
+    if (!perfilSnap.exists) {{
+      if (!ehCadastroNovo) {{
+        authMostrarMsg('Perfil não encontrado. Saia e tente entrar de novo.', 'erro');
+        document.getElementById('auth-logout').style.display = 'block';
+        return;
+      }}
+      await perfilRef.set({{
+        email: user.email, status: 'pendente', isAdmin: false,
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      }});
+      perfilSnap = await perfilRef.get();
+    }}
+    let perfil = perfilSnap.data();
+    const souAdminFixo = user.email === ADMIN_EMAIL_FIXO;
+    // auto-cura: o admin fixo sempre entra, e de quebra deixa o proprio
+    // documento consistente (isAdmin/status) pra tela de Governanca
+    // mostrar certo — as regras do Firestore permitem essa auto-edicao
+    // só pra esse e-mail (ver ehAdminFixo() em firestore.rules)
+    if (souAdminFixo && (!perfil.isAdmin || perfil.status !== 'aprovado')) {{
+      await perfilRef.update({{ isAdmin: true, status: 'aprovado' }});
+      perfil = {{ ...perfil, isAdmin: true, status: 'aprovado' }};
+    }}
+    if (!souAdminFixo && perfil.status === 'pendente') {{
       authMostrarMsg('Cadastro recebido — aguardando aprovação de um administrador.', 'info');
       document.getElementById('auth-logout').style.display = 'block';
       return;
     }}
-    if (perfil.status === 'rejeitado') {{
+    if (!souAdminFixo && perfil.status === 'rejeitado') {{
       authMostrarMsg('Acesso não autorizado para esta conta.', 'erro');
       document.getElementById('auth-logout').style.display = 'block';
       return;
     }}
-    window.SISTEMA_AUTH.usuario = {{ id: user.id, email: user.email, isAdmin: !!perfil.is_admin, status: perfil.status }};
-    if (logarLogin) sb.from('audit_log').insert({{ user_id: user.id, email: user.email, evento: 'login' }});
+    const isAdmin = souAdminFixo || !!perfil.isAdmin;
+    window.SISTEMA_AUTH.usuario = {{ id: user.uid, email: user.email, isAdmin: isAdmin, status: perfil.status }};
+    if (logarLogin) {{
+      db.collection('audit_log').add({{
+        userId: user.uid, email: user.email, evento: 'login',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      }});
+    }}
     authLimparMsg();
-    authLiberarApp(!!perfil.is_admin);
+    authLiberarApp(isAdmin);
   }}
+
+  // fonte unica de verdade pro estado de login — dispara no load (sessao
+  // restaurada, logarLogin=false) e apos signIn/signUp bem-sucedidos
+  // (logarLogin=true via a flag setada nos handlers de submit abaixo)
+  auth.onAuthStateChanged(function(user) {{
+    if (!user) return;
+    const logar = logarLoginPendente;
+    const cadastroNovo = cadastroNovoPendente;
+    logarLoginPendente = false;
+    cadastroNovoPendente = false;
+    aoAutenticar(user, logar, cadastroNovo);
+  }});
 
   document.querySelectorAll('[data-auth-tab]').forEach(function(btn) {{
     btn.addEventListener('click', function() {{
@@ -487,9 +574,13 @@ function authLiberarApp(admin) {{
     authLimparMsg();
     const email = document.getElementById('login-email').value.trim();
     const senha = document.getElementById('login-senha').value;
-    const r = await sb.auth.signInWithPassword({{ email: email, password: senha }});
-    if (r.error) {{ authMostrarMsg('E-mail ou senha inválidos.', 'erro'); return; }}
-    await aoAutenticar(r.data.user, true);
+    try {{
+      logarLoginPendente = true;
+      await auth.signInWithEmailAndPassword(email, senha);
+    }} catch (err) {{
+      logarLoginPendente = false;
+      authMostrarMsg(traduzErroFirebase(err), 'erro');
+    }}
   }});
 
   document.getElementById('form-cadastro').addEventListener('submit', async function(ev) {{
@@ -498,24 +589,27 @@ function authLiberarApp(admin) {{
     const email = document.getElementById('cad-email').value.trim();
     const senha = document.getElementById('cad-senha').value;
     if (senha.length < 4) {{ authMostrarMsg('A senha precisa ter pelo menos 4 caracteres.', 'erro'); return; }}
-    const r = await sb.auth.signUp({{ email: email, password: senha }});
-    if (r.error) {{ authMostrarMsg(r.error.message || 'Não foi possível criar a conta.', 'erro'); return; }}
-    if (r.data.user && !r.data.session) {{
-      authMostrarMsg('Cadastro enviado! Confirme seu e-mail (se pedido) e aguarde aprovação de um administrador.', 'info');
-      return;
+    try {{
+      logarLoginPendente = true;
+      cadastroNovoPendente = true;
+      await auth.createUserWithEmailAndPassword(email, senha);
+    }} catch (err) {{
+      logarLoginPendente = false;
+      cadastroNovoPendente = false;
+      authMostrarMsg(traduzErroFirebase(err), 'erro');
     }}
-    if (r.data.user) await aoAutenticar(r.data.user, true);
   }});
 
   document.getElementById('auth-logout').addEventListener('click', async function() {{
     const eu = window.SISTEMA_AUTH.usuario;
-    if (eu) await sb.from('audit_log').insert({{ user_id: eu.id, email: eu.email, evento: 'logout' }});
-    await sb.auth.signOut();
+    if (eu) {{
+      await db.collection('audit_log').add({{
+        userId: eu.id, email: eu.email, evento: 'logout',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      }});
+    }}
+    await auth.signOut();
     location.reload();
-  }});
-
-  sb.auth.getSession().then(function(r) {{
-    if (r.data.session && r.data.session.user) aoAutenticar(r.data.session.user, false);
   }});
 }})();
 """
@@ -547,7 +641,9 @@ def montar_shell(dominios: dict[str, dict]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sistema Atividade Econômica</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 {estilos}
 {SHELL_CSS}
@@ -592,9 +688,12 @@ def montar_shell(dominios: dict[str, dict]) -> str:
   let ultimaSecaoLogada = null;
   function logarVisita(nome) {{
     const auth = window.SISTEMA_AUTH;
-    if (!auth || !auth.supabase || !auth.usuario || nome === ultimaSecaoLogada) return;
+    if (!auth || !auth.db || !auth.usuario || nome === ultimaSecaoLogada) return;
     ultimaSecaoLogada = nome;
-    auth.supabase.from('audit_log').insert({{ user_id: auth.usuario.id, email: auth.usuario.email, evento: 'visita', detalhe: nome }});
+    auth.db.collection('audit_log').add({{
+      userId: auth.usuario.id, email: auth.usuario.email, evento: 'visita', detalhe: nome,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    }});
   }}
   function irParaSecao(nome, atualizarHash) {{
     if (!SECOES.includes(nome)) nome = 'geral';

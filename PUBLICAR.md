@@ -1,55 +1,55 @@
 # Publicar o site — passo a passo (100% gratuito)
 
-Duas contas gratuitas resolvem tudo: **Supabase** (login/cadastro + banco de
-governança) e **GitHub** (hospedagem do site). Nenhuma das duas cobra nada no
-volume de uso deste projeto (uso interno, poucos usuários).
+Duas contas gratuitas resolvem tudo: **Firebase** (Google — login/cadastro +
+banco de governança) e **GitHub** (hospedagem do site). Nenhuma das duas
+cobra nada no volume de uso deste projeto (uso interno, poucos usuários).
 
-## Parte 1 — Supabase (login, cadastro, governança)
+## Parte 1 — Firebase (login, cadastro, governança)
 
-1. Crie uma conta em [supabase.com](https://supabase.com) (pode entrar com o
-   GitHub, se já tiver conta lá).
-2. Crie um novo projeto (**New project**) — escolha uma senha de banco
-   forte quando pedir (isso é a senha do Postgres, não tem relação com as
-   senhas dos usuários do site) e guarde-a num lugar seguro.
-3. Espere o projeto provisionar (1-2 minutos).
-4. No menu lateral, abra **SQL Editor** → **New query**. Copie e cole o
-   conteúdo inteiro do arquivo [`supabase/schema.sql`](supabase/schema.sql)
-   deste projeto e clique em **Run**. Isso cria as tabelas de perfil e
-   auditoria, o gatilho de cadastro automático, e as regras de segurança
-   (RLS).
-5. (Opcional, recomendado pra simplicidade) No menu **Authentication** →
-   **Providers** → **Email**, desligue **Confirm email** — assim o cadastro
-   fica instantâneo (sem precisar clicar num link recebido por e-mail antes
-   de poder logar). Sem isso, o cadastro ainda funciona, só demora um passo
-   a mais.
-6. No menu **Project Settings** → **API**, copie dois valores:
-   - **Project URL** (algo como `https://xxxxxxxx.supabase.co`)
-   - **anon public key** (uma chave longa) — **não é a `service_role`**,
-     essa não deve ser usada aqui.
-7. Abra [`src/gerar_sistema.py`](src/gerar_sistema.py) e troque as duas
-   constantes no topo do arquivo:
-   ```python
-   SUPABASE_URL = "https://xxxxxxxx.supabase.co"
-   SUPABASE_ANON_KEY = "sua-anon-key-aqui"
+1. Acesse [console.firebase.google.com](https://console.firebase.google.com)
+   com uma conta Google (pode ser a mesma do Gmail que você já usa).
+2. **Criar um projeto** → dê um nome (ex. "atividade-economica") → pode
+   desativar o Google Analytics (não é necessário) → **Criar projeto**.
+3. No menu lateral, **Compilação → Authentication** → **Vamos começar** →
+   escolha **E-mail/senha** na lista de provedores → ative a primeira
+   opção ("E-mail/senha") → **Salvar**.
+4. **Compilação → Firestore Database** → **Criar banco de dados** → modo
+   de produção → escolha uma localização (qualquer uma nas Américas serve,
+   ex. `southamerica-east1` se disponível) → **Ativar**.
+5. Na aba **Regras** do Firestore, apague o conteúdo padrão e cole o
+   conteúdo inteiro do arquivo
+   [`firebase/firestore.rules`](firebase/firestore.rules) deste projeto →
+   **Publicar**. Isso é o que garante, no servidor, que ninguém consegue
+   se auto-aprovar ou se promover a admin mexendo no navegador — e já
+   reconhece `raularagaoalves@gmail.com` como administrador permanente,
+   sem nenhum passo manual extra.
+6. No ícone de engrenagem (⚙) → **Configurações do projeto** → role até
+   **Seus aplicativos** → clique no ícone `</>` (Web) → dê um apelido (ex.
+   "site") → **Registrar app** (não precisa marcar Firebase Hosting).
+7. Copie o objeto `firebaseConfig` que aparece na tela — algo assim:
+   ```js
+   const firebaseConfig = {
+     apiKey: "AIza...",
+     authDomain: "atividade-economica-xxxx.firebaseapp.com",
+     projectId: "atividade-economica-xxxx",
+     storageBucket: "atividade-economica-xxxx.appspot.com",
+     appId: "1:...:web:..."
+   };
    ```
-8. Rode `python src/gerar_sistema.py` de novo — a partir daqui o
+8. Abra [`src/gerar_sistema.py`](src/gerar_sistema.py) e cole esses
+   valores na constante `FIREBASE_CONFIG` no topo do arquivo (troque só os
+   5 campos, mantendo as aspas).
+9. Rode `python src/gerar_sistema.py` de novo — a partir daqui o
    `index.html` gerado passa a exigir login.
-9. Abra o site (local ou já publicado), vá na aba **Criar conta**, cadastre
-   seu próprio e-mail e uma senha (mínimo 4 caracteres).
-10. Volte ao **SQL Editor** do Supabase e rode, trocando pelo e-mail que
-    você acabou de cadastrar:
-    ```sql
-    update public.profiles set is_admin = true, status = 'aprovado', approved_at = now()
-    where email = 'seu-email@aqui.com';
-    ```
-    Isso te promove a administrador e libera seu próprio acesso — sem essa
-    etapa manual, nem você conseguiria entrar (todo cadastro nasce
-    'pendente', esperando aprovação de alguém que já seja admin).
-11. Atualize a página (F5) — você já entra, e a aba **Governança** do menu
-    aparece pra você aprovar os próximos cadastros que chegarem.
+10. Abra o site (local ou já publicado), vá na aba **Criar conta**, e
+    cadastre **exatamente** `raularagaoalves@gmail.com` com uma senha
+    (mínimo 4 caracteres) — como esse e-mail já está fixado nas regras do
+    Firestore como administrador permanente, o acesso é liberado na hora,
+    sem nenhum passo manual no banco (diferente do Supabase, que exigia
+    rodar um SQL à parte).
 
-**A partir daqui**, qualquer pessoa que se cadastrar fica pendente até você
-(ou outro admin) aprovar na aba Governança.
+**A partir daqui**, qualquer outra pessoa que se cadastrar fica pendente
+até você (ou outro admin que você aprovar) liberar na aba Governança.
 
 ## Parte 2 — GitHub Pages (hospedagem do site)
 
@@ -110,7 +110,7 @@ minutos depois.
 ## O que muda no dia a dia
 
 - O site deixa de abrir 100% offline — a tela de login precisa de internet
-  pra conversar com o Supabase. Depois de logado, a sessão fica salva no
+  pra conversar com o Firebase. Depois de logado, a sessão fica salva no
   navegador (não pede senha de novo a cada visita, até você clicar em
   "Sair" ou limpar os dados do navegador).
 - Qualquer pessoa com o link pode se cadastrar, mas ninguém acessa o

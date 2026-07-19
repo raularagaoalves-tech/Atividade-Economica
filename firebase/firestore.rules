@@ -1,0 +1,83 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------
+// Regras de segurança do Firestore — governança do Sistema Atividade
+// Econômica (cadastro por e-mail/senha com aprovação manual, log de
+// auditoria). Colar isto inteiro no Firebase Console → Firestore
+// Database → Regras → Publicar. Ver PUBLICAR.md pro passo a passo.
+//
+// A segurança de verdade mora AQUI, não no JavaScript da página (que
+// qualquer um pode ler/editar no navegador) — a config do Firebase
+// (apiKey etc.) é pública por design, o que protege os dados é isto.
+// ---------------------------------------------------------------------
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estaLogado() {
+      return request.auth != null;
+    }
+
+    function ehEuMesmo(uid) {
+      return estaLogado() && request.auth.uid == uid;
+    }
+
+    // admin permanente, fixado aqui — nunca depende de nenhum campo do
+    // banco (evita o problema do Supabase: um UPDATE manual só pra virar
+    // o primeiro administrador). Verificado direto no e-mail já validado
+    // pelo próprio Firebase Auth (request.auth.token.email), impossível
+    // de falsificar pelo cliente.
+    function ehAdminFixo() {
+      return estaLogado() && request.auth.token.email == 'raularagaoalves@gmail.com';
+    }
+
+    function meuPerfil() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+    }
+
+    function ehAdminAprovado() {
+      return estaLogado()
+        && meuPerfil().isAdmin == true
+        && meuPerfil().status == 'aprovado';
+    }
+
+    function ehAdmin() {
+      return ehAdminFixo() || ehAdminAprovado();
+    }
+
+    match /profiles/{uid} {
+      // cada um lê o próprio perfil; admin lê qualquer um
+      allow get: if ehEuMesmo(uid) || ehAdmin();
+      allow list: if ehAdmin();
+
+      // só cria o PRÓPRIO perfil, e só nasce pendente/sem privilégio —
+      // impossível already chegar aprovado ou admin manipulando o
+      // navegador, mesmo que o cliente tente mandar outra coisa
+      allow create: if ehEuMesmo(uid)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.isAdmin == false;
+
+      // só admin aprova/rejeita/promove — inclusive o próprio admin fixo
+      // pode "curar" o próprio doc (deixar isAdmin/status consistentes),
+      // já que ehAdminFixo() não depende do doc pra valer
+      allow update: if ehAdmin();
+
+      allow delete: if false;
+    }
+
+    match /audit_log/{id} {
+      // cada um só grava o PRÓPRIO evento — nunca em nome de outro usuário
+      allow create: if estaLogado() && request.resource.data.userId == request.auth.uid;
+
+      // log é só pra admin ler; ninguém edita/apaga (auditoria imutável)
+      allow get, list: if ehAdmin();
+      allow update, delete: if false;
+    }
+
+    // nega tudo o mais por padrão (comportamento implícito do Firestore,
+    // mas explícito aqui pra deixar claro que não há coleções extras)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -10,7 +10,7 @@
 
   <div id="gv-nao-configurado" class="card" style="display:none;">
     <p class="card-title">Login ainda não configurado</p>
-    <p class="card-sub">Preencha SUPABASE_URL e SUPABASE_ANON_KEY em gerar_sistema.py e regenere o site — ver PUBLICAR.md.</p>
+    <p class="card-sub">Preencha FIREBASE_CONFIG em gerar_sistema.py e regenere o site — ver PUBLICAR.md.</p>
   </div>
 
   <div id="gv-restrito" class="card" style="display:none;">
@@ -43,7 +43,7 @@
       <div class="tabela-wrap">
         <table class="tbl-if" id="gv-audit-tabela">
           <thead><tr>
-            <th data-col="criado_em">Quando</th>
+            <th data-col="criadoEm">Quando</th>
             <th data-col="email">E-mail</th>
             <th data-col="evento">Evento</th>
             <th data-col="detalhe">Detalhe</th>
@@ -56,10 +56,16 @@
   </div>
 
 <script>
-function fmtData(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
+// Timestamps do Firestore chegam como objeto (com .toDate()), não string —
+// esta função aceita os dois formatos (defensivo, cobre serverTimestamp
+// ainda não resolvido localmente, que some como null por um instante)
+function fmtData(ts) {
+  if (!ts) return '—';
+  const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
   return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function valorOrdenavel(v) {
+  return v && typeof v.toMillis === 'function' ? v.toMillis() : v;
 }
 const EVENTO_LABEL = {
   login: 'Login', logout: 'Logout', visita: 'Visita', cadastro: 'Cadastro',
@@ -68,9 +74,10 @@ const EVENTO_LABEL = {
 
 let gvPendentes = [], gvUsuarios = [], gvAudit = [];
 let gvAuditFiltro = '';
-let gvAuditOrdem = { col: 'criado_em', dir: -1 };
+let gvAuditOrdem = { col: 'criadoEm', dir: -1 };
 
 function compararGv(va, vb, dir) {
+  va = valorOrdenavel(va); vb = valorOrdenavel(vb);
   if (va == null && vb == null) return 0;
   if (va == null) return 1;
   if (vb == null) return -1;
@@ -79,25 +86,33 @@ function compararGv(va, vb, dir) {
 }
 
 async function carregarTudo() {
-  const sb = window.SISTEMA_AUTH.supabase;
-  const [pend, usu, aud] = await Promise.all([
-    sb.from('profiles').select('*').eq('status', 'pendente').order('created_at', { ascending: true }),
-    sb.from('profiles').select('*').neq('status', 'pendente').order('created_at', { ascending: false }),
-    sb.from('audit_log').select('*').order('criado_em', { ascending: false }).limit(500),
+  const db = window.SISTEMA_AUTH.db;
+  // busca todos os perfis de uma vez e separa em memória — evita precisar
+  // criar um índice composto no Firestore só pra filtrar por status
+  const [perfisSnap, auditSnap] = await Promise.all([
+    db.collection('profiles').get(),
+    db.collection('audit_log').orderBy('criadoEm', 'desc').limit(500).get(),
   ]);
-  gvPendentes = pend.data || [];
-  gvUsuarios = usu.data || [];
-  gvAudit = aud.data || [];
+  const perfis = perfisSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  gvPendentes = perfis.filter(p => p.status === 'pendente')
+    .sort((a, b) => compararGv(a.criadoEm, b.criadoEm, 1));
+  gvUsuarios = perfis.filter(p => p.status !== 'pendente')
+    .sort((a, b) => compararGv(a.criadoEm, b.criadoEm, -1));
+  gvAudit = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderPendentes();
   renderUsuarios();
   renderAudit();
 }
 
 async function decidir(id, status) {
-  const sb = window.SISTEMA_AUTH.supabase;
+  const db = window.SISTEMA_AUTH.db;
   const eu = window.SISTEMA_AUTH.usuario;
-  await sb.from('profiles').update({ status, approved_at: new Date().toISOString(), approved_by: eu.id }).eq('id', id);
-  await sb.from('audit_log').insert({ user_id: eu.id, email: eu.email, evento: status === 'aprovado' ? 'aprovacao' : 'rejeicao', detalhe: id });
+  await db.collection('profiles').doc(id).update({ status });
+  await db.collection('audit_log').add({
+    userId: eu.id, email: eu.email,
+    evento: status === 'aprovado' ? 'aprovacao' : 'rejeicao', detalhe: id,
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+  });
   await carregarTudo();
 }
 
@@ -105,8 +120,8 @@ function renderPendentes() {
   const cont = document.getElementById('gv-pendentes');
   cont.innerHTML = gvPendentes.length ? gvPendentes.map(p => `
     <div class="gv-row">
-      <span class="gv-email">${p.email}</span>
-      <span class="badge">cadastrado em ${fmtData(p.created_at)}</span>
+      <span class="gv-email">${escapeHtml(p.email)}</span>
+      <span class="badge">cadastrado em ${fmtData(p.criadoEm)}</span>
       <button class="tbtn" data-aprovar="${p.id}">Aprovar</button>
       <button class="tbtn" data-rejeitar="${p.id}">Rejeitar</button>
     </div>`).join('') : '<p class="drawer-empty">Nenhum cadastro pendente.</p>';
@@ -118,9 +133,9 @@ function renderUsuarios() {
   const cont = document.getElementById('gv-usuarios');
   cont.innerHTML = gvUsuarios.length ? gvUsuarios.map(u => `
     <div class="gv-row">
-      <span class="gv-email">${u.email}${u.is_admin ? ' <span class="badge">admin</span>' : ''}</span>
-      <span class="badge" style="color:${u.status === 'aprovado' ? 'var(--green-lite,#4ade80)' : 'var(--rose-lite,#fb7185)'}">${u.status}</span>
-      <span class="card-sub">desde ${fmtData(u.approved_at || u.created_at)}</span>
+      <span class="gv-email">${escapeHtml(u.email)}${u.isAdmin ? ' <span class="badge">admin</span>' : ''}</span>
+      <span class="badge" style="color:${u.status === 'aprovado' ? 'var(--green-lite,#4ade80)' : 'var(--rose-lite,#fb7185)'}">${escapeHtml(u.status)}</span>
+      <span class="card-sub">desde ${fmtData(u.criadoEm)}</span>
       ${u.status === 'rejeitado' ? `<button class="tbtn" data-aprovar="${u.id}">Aprovar mesmo assim</button>` : ''}
     </div>`).join('') : '<p class="drawer-empty">Nenhum usuário aprovado ou rejeitado ainda.</p>';
   cont.querySelectorAll('[data-aprovar]').forEach(b => b.addEventListener('click', () => decidir(b.dataset.aprovar, 'aprovado')));
@@ -134,10 +149,10 @@ function renderAudit() {
   const corpo = document.getElementById('gv-audit-corpo');
   corpo.innerHTML = linhas.length ? linhas.map(a => `
     <tr>
-      <td>${fmtData(a.criado_em)}</td>
-      <td>${a.email}</td>
-      <td>${EVENTO_LABEL[a.evento] || a.evento}</td>
-      <td>${a.detalhe || '—'}</td>
+      <td>${fmtData(a.criadoEm)}</td>
+      <td>${escapeHtml(a.email)}</td>
+      <td>${escapeHtml(EVENTO_LABEL[a.evento] || a.evento)}</td>
+      <td>${escapeHtml(a.detalhe || '—')}</td>
     </tr>`).join('') : '<tr><td colspan="4" class="drawer-empty">Nenhum evento encontrado.</td></tr>';
   document.getElementById('gv-audit-contagem').textContent =
     `${linhas.length} evento${linhas.length === 1 ? '' : 's'}`;
@@ -152,7 +167,7 @@ function popularAudit() {
     th.addEventListener('click', () => {
       const col = th.dataset.col;
       if (gvAuditOrdem.col === col) gvAuditOrdem.dir *= -1;
-      else { gvAuditOrdem.col = col; gvAuditOrdem.dir = col === 'criado_em' ? -1 : 1; }
+      else { gvAuditOrdem.col = col; gvAuditOrdem.dir = col === 'criadoEm' ? -1 : 1; }
       renderAudit();
     });
   });
