@@ -41,11 +41,12 @@ SRC = Path(__file__).resolve().parent
 # verdade mora nas regras do Firestore (firebase/firestore.rules), não em
 # esconder esta config.
 FIREBASE_CONFIG = {
-    "apiKey": "COLE_AQUI_A_APIKEY",
-    "authDomain": "COLE_AQUI_O_AUTHDOMAIN",
-    "projectId": "COLE_AQUI_O_PROJECTID",
-    "storageBucket": "COLE_AQUI_O_STORAGEBUCKET",
-    "appId": "COLE_AQUI_O_APPID",
+    "apiKey": "AIzaSyCFYTBd0njtMKqg0FDbDZk8uVo0roeY0dA",
+    "authDomain": "atividade-economica.firebaseapp.com",
+    "projectId": "atividade-economica",
+    "storageBucket": "atividade-economica.firebasestorage.app",
+    "messagingSenderId": "397008799592",
+    "appId": "1:397008799592:web:069a1723c1d963a63178dd",
 }
 # admin permanente — nunca depende de nenhum campo do banco (ver a mesma
 # regra espelhada em firebase/firestore.rules, que é quem garante isso de
