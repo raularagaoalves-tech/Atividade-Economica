@@ -221,8 +221,10 @@
 
   .filtros-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
 
-  .tabela-wrap { overflow-x: auto; }
-  .tabela-wrap.retraida table.tbl-if tbody { display: none; }
+  /* ~10 linhas visíveis (cabeçalho + 10 × ~35px) — o resto rola dentro do
+     próprio quadro; o cabeçalho fica preso no topo durante a rolagem */
+  .tabela-wrap { overflow-x: auto; overflow-y: auto; max-height: 400px; }
+  .tabela-wrap table.tbl-if thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
   table.tbl-if { width: 100%; border-collapse: collapse; font-size: .8rem; }
   table.tbl-if th {
     text-align: left; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -272,8 +274,7 @@
 
     <section class="card">
       <div class="card-head">
-        <div><p class="card-title">Buscar instituições</p><p class="card-sub">Todas as instituições ativas na última competência — filtre por segmento, UF ou busque pelo nome (sem limite de resultados); clique numa linha pra retrair a tabela</p></div>
-        <button class="tbtn" id="tabela-if-toggle-btn">Retrair tabela</button>
+        <div><p class="card-title">Buscar instituições</p><p class="card-sub">Todas as instituições ativas na última competência — filtre por segmento, UF ou busque pelo nome (sem limite de resultados); role dentro do quadro pra ver além das 10 primeiras</p></div>
       </div>
       <div class="filtros-row">
         <div class="busca-wrap">
@@ -615,17 +616,6 @@ function compararGenerico(va, vb, dir) {
 }
 let tabelaIfOrdem = { col: 'ativo_total', dir: -1 };
 let tabelaIfFiltros = { texto: '', segmento: '', uf: '' };
-let tabelaIfRetraida = false;
-
-// retrai/expande a tabela inteira (mantém só o cabeçalho visível quando
-// retraída) — automático ao clicar numa linha (foco no resultado escolhido,
-// sem a lista enorme por baixo), reversível pelo botão ou ao refinar a busca
-function setTabelaIfRetraida(v) {
-  tabelaIfRetraida = v;
-  document.querySelector('#tabela-if').closest('.tabela-wrap').classList.toggle('retraida', v);
-  document.getElementById('tabela-if-toggle-btn').textContent = v ? 'Expandir tabela' : 'Retrair tabela';
-  document.getElementById('tabela-if-contagem').style.display = v ? 'none' : '';
-}
 
 function popularFiltrosTabelaIf() {
   const todas = DADOS.todas_instituicoes || [];
@@ -635,16 +625,15 @@ function popularFiltrosTabelaIf() {
     segmentos.map(s => `<option value="${s}">${s}</option>`).join('');
   document.getElementById('filtro-if-uf').innerHTML = '<option value="">Todas as UFs</option>' +
     ufs.map(u => `<option value="${u}">${u}</option>`).join('');
-  document.getElementById('filtro-if-segmento').addEventListener('change', e => { tabelaIfFiltros.segmento = e.target.value; setTabelaIfRetraida(false); renderTabelaIf(); });
-  document.getElementById('filtro-if-uf').addEventListener('change', e => { tabelaIfFiltros.uf = e.target.value; setTabelaIfRetraida(false); renderTabelaIf(); });
+  document.getElementById('filtro-if-segmento').addEventListener('change', e => { tabelaIfFiltros.segmento = e.target.value; renderTabelaIf(); });
+  document.getElementById('filtro-if-uf').addEventListener('change', e => { tabelaIfFiltros.uf = e.target.value; renderTabelaIf(); });
 
   const inputBusca = document.getElementById('busca-if-input');
-  inputBusca.addEventListener('input', () => { tabelaIfFiltros.texto = inputBusca.value; setTabelaIfRetraida(false); renderTabelaIf(); });
+  inputBusca.addEventListener('input', () => { tabelaIfFiltros.texto = inputBusca.value; renderTabelaIf(); });
   const opcoes = todas.map(i => ({ value: String(i.codinst), label: i.nome, tag: i.segmento || '' }));
   montarAutocomplete(inputBusca, document.getElementById('busca-if-dropdown'), opcoes, (codinst, nome) => {
     inputBusca.value = nome;
     tabelaIfFiltros.texto = nome;
-    setTabelaIfRetraida(false);
     renderTabelaIf();
   }, { clearOnSelect: false });
 
@@ -656,8 +645,6 @@ function popularFiltrosTabelaIf() {
       renderTabelaIf();
     });
   });
-
-  document.getElementById('tabela-if-toggle-btn').addEventListener('click', () => setTabelaIfRetraida(!tabelaIfRetraida));
 }
 
 function renderTabelaIf() {
@@ -685,7 +672,6 @@ function renderTabelaIf() {
   corpo.querySelectorAll('tr[data-codinst]').forEach(tr => {
     tr.addEventListener('click', () => {
       if (instPorCodinst.has(tr.dataset.codinst)) abrirDetalheInstituicao(tr.dataset.codinst);
-      setTabelaIfRetraida(true);
     });
   });
 }

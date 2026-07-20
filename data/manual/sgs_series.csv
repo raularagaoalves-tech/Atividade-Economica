@@ -72,3 +72,5 @@ codigo;nome;grupo;nivel;setor;subsetor;unidade
 25393;IBCR - Região Sudeste;ATIVIDADE;;;;índice
 25400;IBCR - Região Sul;ATIVIDADE;;;;índice
 25381;IBCR - Região Centro-Oeste;ATIVIDADE;;;;índice
+20719;Taxa média de juros - Desconto de duplicatas e recebíveis (PJ, rec. livres);JUROS;;;;% a.a.
+25438;Taxa média mensal de juros - Desconto de duplicatas e recebíveis (PJ, rec. livres);JUROS;;;;% a.m.

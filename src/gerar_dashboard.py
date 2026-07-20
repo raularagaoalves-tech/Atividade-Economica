@@ -96,6 +96,28 @@ def kpis(serie: list[dict]) -> dict:
     )
 
 
+def taxa_duplicata(con: sqlite3.Connection) -> dict:
+    """Taxa média de juros de "Desconto de duplicatas e recebíveis" (PJ,
+    recursos livres) — a média PONDERADA pelo volume das concessões, como
+    o BCB publica (pedido do usuário, jul/2026). Duas séries SGS nativas,
+    mesma taxa em unidades diferentes: 20719 (% a.a.) e 25438 (% a.m.) —
+    não converte nada, usa as duas direto da fonte."""
+    def serie(codigo):
+        return con.execute(
+            "SELECT competencia, valor FROM sgs_valor WHERE codigo = ? "
+            "ORDER BY competencia", (codigo,)).fetchall()
+    aa, am = serie(20719), serie(25438)
+    if not aa:
+        return {}
+    comp, valor_aa = aa[-1]
+    valor_am = next((v for c, v in reversed(am) if c == comp), None)
+    ref_12m = next((v for c, v in aa if c == comp - 100), None)
+    return dict(
+        competencia=comp, aa=valor_aa, am=valor_am,
+        var_12m_pp=round(valor_aa - ref_12m, 2) if ref_12m is not None else None,
+    )
+
+
 def ranking(con: sqlite3.Connection, view: str, filtro_cliente: str | None,
            metrica_filtro: str | None = None) -> list[dict]:
     condicoes = ["modalidade IS NOT NULL",
@@ -213,6 +235,7 @@ def montar_dados(con: sqlite3.Connection) -> dict:
         ranking_concessao=ranking_concessao(con),
         saldo_porte=saldo_por_porte(con),
         top_carteiras=top_carteiras(con),
+        duplicata=taxa_duplicata(con),
     )
 
 

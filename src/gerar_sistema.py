@@ -101,7 +101,7 @@ IDS_POR_DOMINIO = {
         "as-of-line", "kpi-row", "bars-segmento", "drawer-segmento-card",
         "drawer-segmento-empty", "drawer-segmento-body",
         "busca-if-input", "busca-if-dropdown", "filtro-if-segmento", "filtro-if-uf",
-        "tabela-if", "tabela-if-corpo", "tabela-if-contagem", "tabela-if-toggle-btn",
+        "tabela-if", "tabela-if-corpo", "tabela-if-contagem",
         "dre-ranking-pills", "dre-visao-toggle", "bars-dre", "dre-historico-wrap",
         "svg-dre-hist", "dre-hist-catcher", "dre-hist-tip", "dre-hist-xticks",
         "drawer-card", "drawer-empty", "drawer-body", "comparacao-card",
