@@ -226,14 +226,14 @@
     <section class="card">
       <div class="card-head">
         <div>
-          <p class="card-title">Saldo da carteira &amp; taxa média mensal</p>
+          <p class="card-title">Saldo da carteira &amp; taxa média de juros</p>
           <p class="card-sub">Crédito total do Sistema Financeiro Nacional (BACEN SGS) — saldo em R$ e taxa média de juros, mês a mês</p>
         </div>
         <div class="pills" id="window-pills" role="group" aria-label="Janela de tempo"></div>
       </div>
       <div class="legend-row" style="margin-bottom:.9rem;">
         <span class="legend-item"><span class="legend-swatch area" style="background:var(--teal)"></span>Saldo consolidado</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span>Taxa média mensal (% a.a.)</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:var(--amber)"></span>Taxa média de juros (% a.a., série mensal)</span>
         <button class="tbtn" id="hero-table-btn" style="margin-left:auto;">Ver tabela</button>
       </div>
       <div class="hero-panes">
@@ -242,7 +242,7 @@
           <svg class="chart" id="svg-saldo"></svg>
         </div>
         <div class="pane-wrap" id="pane-taxa" style="margin-top:.6rem;">
-          <p class="pane-title">TAXA MÉDIA MENSAL</p>
+          <p class="pane-title">TAXA MÉDIA DE JUROS (% A.A.)</p>
           <svg class="chart" id="svg-taxa"></svg>
           <div class="x-ticks" id="hero-xticks"></div>
         </div>
@@ -423,8 +423,9 @@ function renderKPIs() {
       caption: `M/M ${fmtVarPct(varSaldo.mensal)} · no ano ${fmtVarPct(varSaldo.ano)} · 12M ${fmtVarPct(varSaldo.doze)}`,
     },
     {
-      label: 'Taxa média mensal', value: fmtPct(k.juros_total, 2), delta: deltaChip(k.juros_var_12m_pp, ' p.p.', false), hue: 'var(--amber)',
-      caption: `M/M ${fmtVarPP(varJuros.mensal)} · no ano ${fmtVarPP(varJuros.ano)} · 12M ${fmtVarPP(varJuros.doze)}`,
+      label: 'Taxa média de juros', value: `${fmtPct(k.juros_total, 2)}<span class="unit">a.a.</span>`, delta: deltaChip(k.juros_var_12m_pp, ' p.p.', false), hue: 'var(--amber)',
+      caption: (DADOS.juros_am != null ? `${fmtPct(DADOS.juros_am, 2)} a.m. · ` : '') +
+        `M/M ${fmtVarPP(varJuros.mensal)} · no ano ${fmtVarPP(varJuros.ano)} · 12M ${fmtVarPP(varJuros.doze)}`,
     },
     {
       label: 'Inadimplência total', value: fmtPct(k.inadimplencia_total, 2), delta: deltaChip(k.inadimplencia_var_12m_pp, ' p.p.', true), hue: 'var(--rose)',

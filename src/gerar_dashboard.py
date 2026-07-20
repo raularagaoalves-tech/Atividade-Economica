@@ -96,6 +96,17 @@ def kpis(serie: list[dict]) -> dict:
     )
 
 
+def taxa_media_am(con: sqlite3.Connection) -> float | None:
+    """Taxa média de juros do crédito total em % a.m. (SGS 25433) — série
+    irmã da 20714 (% a.a.) que alimenta o KPI, mesma taxa em outra
+    unidade, direto da fonte (pedido do usuário, jul/2026: o card exibia
+    só o valor a.a. sob o rótulo enganoso "Taxa média mensal")."""
+    r = con.execute(
+        "SELECT valor FROM sgs_valor WHERE codigo = 25433 "
+        "ORDER BY competencia DESC LIMIT 1").fetchone()
+    return r[0] if r else None
+
+
 def taxa_duplicata(con: sqlite3.Connection) -> dict:
     """Taxa média de juros de "Desconto de duplicatas e recebíveis" (PJ,
     recursos livres) — a média PONDERADA pelo volume das concessões, como
@@ -236,6 +247,7 @@ def montar_dados(con: sqlite3.Connection) -> dict:
         saldo_porte=saldo_por_porte(con),
         top_carteiras=top_carteiras(con),
         duplicata=taxa_duplicata(con),
+        juros_am=taxa_media_am(con),
     )
 
 

@@ -74,3 +74,4 @@ codigo;nome;grupo;nivel;setor;subsetor;unidade
 25381;IBCR - Região Centro-Oeste;ATIVIDADE;;;;índice
 20719;Taxa média de juros - Desconto de duplicatas e recebíveis (PJ, rec. livres);JUROS;;;;% a.a.
 25438;Taxa média mensal de juros - Desconto de duplicatas e recebíveis (PJ, rec. livres);JUROS;;;;% a.m.
+25433;Taxa média mensal de juros - Total;JUROS;;;;% a.m.
